@@ -1,0 +1,1438 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14302A">
+<meta name="description" content="NectarLab: planta virtual de néctares de fruta a escala industrial. Programa de Ingeniería Agroindustrial, Universidad Surcolombiana.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>[hidden]{display:none!important}html,body{margin:0}</style>
+<title>NectarLab USCO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: escena 3D a pantalla completa; HUD arriba, joystick y botón Operar abajo, paneles de equipo como hoja lateral (escritorio) o inferior (teléfono). Look único claro, de planta sanitaria. */
+:root{
+  --bg:#DCE4DF; --panel:#F8FBF8; --panel2:#E6EDE8; --ink:#14302A; --muted:#55695F; --line:#C3D0C9;
+  --accent:#E29B00; --accent-ink:#6E4500; --accent-soft:#FBEBC4;
+  --pipe:#0E6B66; --pipe-soft:#D3E9E5;
+  --good:#23824F; --good-soft:#DDF1E4; --bad:#BC3A2C; --bad-soft:#F7DFDA;
+  --f-display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+html,body{height:100%;overflow:hidden}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;touch-action:none;-webkit-user-select:none;user-select:none}
+#view{position:fixed;inset:0;display:block;width:100%;height:100%;cursor:grab}
+#view:active{cursor:grabbing}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+.num,.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}
+
+/* HUD */
+.hud{position:fixed;top:0;left:0;right:0;padding:calc(10px + env(safe-area-inset-top,0px)) 12px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;pointer-events:none;z-index:3}
+.hud>*{pointer-events:auto}
+.pill{background:rgba(248,251,248,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;padding:8px 12px;box-shadow:0 4px 16px rgba(20,48,42,.12)}
+.brand{display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left;min-width:0;max-width:100%}
+.brand b{font-family:var(--f-display);font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand span{font-size:12px;color:var(--muted);display:block}
+.brand .lg{width:30px;height:30px;flex:none}
+.score{display:flex;gap:14px;align-items:center}
+.score div{display:flex;flex-direction:column;line-height:1.1}
+.score b{font-family:var(--f-mono);color:var(--accent-ink);font-size:15px}
+.score span{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.tools{margin-left:auto;display:flex;gap:6px}
+.tb{border:1px solid var(--line);background:rgba(248,251,248,.92);border-radius:10px;padding:8px 12px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 4px 16px rgba(20,48,42,.12)}
+.tb:hover{border-color:var(--pipe)}
+.obj{flex-basis:100%;display:flex;justify-content:center}
+.obj .pill{font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;padding:6px 12px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--accent);flex:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.stars{color:var(--accent);letter-spacing:2px}
+.stars .off{color:#C3CFC8}
+
+.reticle{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px rgba(20,48,42,.6);pointer-events:none;z-index:2}
+.help{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));font-size:12px;z-index:2;max-width:calc(100% - 24px)}
+.operate{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:3;background:var(--accent);color:#1b1300;border:0;border-radius:30px;padding:12px 22px;font-family:var(--f-display);font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 8px 24px rgba(110,69,0,.35);max-width:calc(100% - 180px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.operate kbd{font-family:var(--f-mono);background:rgba(0,0,0,.12);border-radius:4px;padding:1px 6px;margin-left:6px;font-size:12px}
+.joy{position:fixed;left:calc(18px + env(safe-area-inset-left,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));width:120px;height:120px;border-radius:50%;background:rgba(248,251,248,.35);border:2px solid rgba(248,251,248,.8);z-index:3;touch-action:none}
+.joy i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px;border-radius:50%;background:rgba(248,251,248,.95);box-shadow:0 4px 12px rgba(20,48,42,.25)}
+@media (pointer:fine){.joy{display:none}}
+@media (pointer:coarse){.help{display:none}.operate{left:auto;right:16px;transform:none;max-width:calc(100% - 170px)}}
+
+/* Hoja de equipo */
+.sheet{position:fixed;z-index:4;top:calc(64px + env(safe-area-inset-top,0px));right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 24px));background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 60px rgba(20,48,42,.3);display:flex;flex-direction:column;overflow:hidden;user-select:text;-webkit-user-select:text;touch-action:auto}
+@media (max-width:640px){.sheet{top:auto;left:8px;right:8px;width:auto;max-height:72%;bottom:calc(8px + env(safe-area-inset-bottom,0px))}}
+.sh-head{display:flex;gap:10px;align-items:flex-start;padding:16px 16px 12px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.sh-head h3{font-size:17px}
+.x{margin-left:auto;border:0;background:var(--panel);border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:18px;flex:none}
+.sh-body{padding:14px 16px 18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;overscroll-behavior:contain}
+.info{font-size:13.5px;color:var(--muted);margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;background:var(--panel2);border-radius:20px;padding:4px 10px}
+.chip b{font-family:var(--f-mono)}
+.ctrl{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:6px 12px;align-items:center}
+.ctrl label{font-size:13px;font-weight:700}
+.ctrl small{grid-column:1/-1;color:var(--muted);font-size:12px;margin-top:-2px}
+.ctrl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--pipe)}
+.ctrl.sel{grid-template-columns:minmax(0,1fr)}
+.field{display:flex;align-items:center;border:1px solid var(--line);border-radius:7px;background:#fff;overflow:hidden}
+.field input,.field select{border:0;background:transparent;width:100%;padding:7px 8px;font-family:var(--f-mono);font-size:14px;min-width:0}
+.field span{font-size:11px;color:var(--muted);padding-right:8px;white-space:nowrap}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+.live{font-size:13px;color:var(--muted)} .live b{font-family:var(--f-mono);color:var(--ink)}
+.predict{background:var(--pipe-soft);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.predict .ctrl label{color:var(--pipe)}
+.go{background:var(--accent);color:#1b1300;border:0;border-radius:10px;padding:13px 16px;font-family:var(--f-display);font-weight:800;font-size:14px;cursor:pointer}
+.go:disabled{opacity:.5;cursor:not-allowed}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:9px;padding:8px 12px;cursor:pointer;font-size:13px;font-weight:700}
+.todo{display:flex;flex-direction:column;gap:6px}
+.todo div{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 10px;border-radius:8px;background:var(--panel2)}
+.todo div.ok{background:var(--good-soft)}
+.todo i{font-style:normal;font-weight:700;width:16px;text-align:center}
+.todo div.ok i{color:var(--good)}
+.todo button{margin-left:auto}
+
+/* Modal */
+.modal{position:fixed;inset:0;z-index:6;background:rgba(14,30,26,.45);display:grid;place-items:center;padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px));touch-action:auto}
+.card{background:var(--panel);border-radius:18px;width:min(760px,100%);max-height:100%;overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.35);user-select:text;-webkit-user-select:text;overscroll-behavior:contain}
+.card-h{padding:20px 22px 14px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start;position:sticky;top:0;background:var(--panel);z-index:1}
+.card-h h2{font-size:21px;margin-top:4px}
+.card-b{padding:16px 22px 22px;display:flex;flex-direction:column;gap:14px}
+.card-b p{margin:0;max-width:68ch}
+.two{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
+@media (max-width:640px){.two{grid-template-columns:minmax(0,1fr)}}
+.order{background:var(--accent-soft);border:1px dashed var(--accent);border-radius:10px;padding:12px 14px;font-size:13px}
+.order dl{margin:6px 0 0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 12px}
+.order dt{color:var(--muted)} .order dd{margin:0;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.order{align-self:start}
+.concept{font-size:13px;color:var(--muted);border-left:3px solid var(--pipe);padding-left:10px}
+.mlist{display:flex;flex-direction:column;gap:8px}
+.mi{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center;text-align:left;background:var(--panel2);border:1px solid transparent;border-radius:12px;padding:10px 12px;cursor:pointer}
+.mi:hover:not(:disabled){border-color:var(--pipe)}
+.mi[aria-current="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.mi:disabled{opacity:.5;cursor:not-allowed}
+.mi .n{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--panel);font-family:var(--f-display);font-weight:800}
+.mi.done .n{background:var(--accent);color:#1b1300}
+.mi b{display:block;font-size:14px} .mi span{font-size:12px;color:var(--muted)}
+.eqlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.eq-b{text-align:left;background:var(--panel2);border:1px solid transparent;border-radius:12px;padding:12px;cursor:pointer;display:flex;flex-direction:column;gap:3px}
+.eq-b:hover{border-color:var(--pipe)}
+.eq-b b{font-size:14px} .eq-b span{font-size:12px;color:var(--muted)}
+.eq-b.req{border-color:var(--accent)}
+.verdict{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.verdict .big{font-size:34px;letter-spacing:4px;color:var(--accent)}
+.verdict .big .off{color:#C3CFC8}
+.verdict h3{font-size:18px} .verdict p{font-size:13px;color:var(--muted)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px}
+.tile{background:var(--panel2);border-radius:9px;padding:9px 11px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile span{font-size:11px;color:var(--muted)} .tile b{font-family:var(--f-mono);font-size:16px;font-variant-numeric:tabular-nums}
+.checks{display:flex;flex-direction:column;gap:6px}
+.grp{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700;margin-top:6px}
+.chk{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;font-size:13px;padding:7px 9px;border-radius:7px;background:var(--good-soft)}
+.chk.ko{background:var(--bad-soft)}
+.chk i{font-style:normal;font-weight:700;color:var(--good);text-align:center} .chk.ko i{color:var(--bad)}
+.chk .d{color:var(--muted);font-family:var(--f-mono);font-size:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.eq{font-family:var(--f-mono);font-size:12.5px;background:var(--panel2);border-radius:6px;padding:8px 10px;margin:4px 0;overflow-x:auto;white-space:nowrap}
+.mcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.mcols h4{margin:0 0 4px;font-size:13px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;font-size:12.5px;width:100%}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.toast{position:fixed;left:50%;top:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(-20px);opacity:0;background:var(--ink);color:#fff;padding:9px 16px;border-radius:30px;font-size:14px;transition:all .3s;z-index:7;pointer-events:none;max-width:calc(100% - 32px);text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.insp{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:4;display:flex;align-items:center;gap:12px;max-width:calc(100% - 24px)}
+.insp b{font-family:var(--f-display);font-size:13px}
+.insp .go{padding:8px 16px;font-size:13px}
+.lg{width:30px;height:31px;flex:none;object-fit:contain}
+.tb.team{max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.credit{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));font-size:11.5px;z-index:2;color:var(--muted);max-width:min(560px,calc(100% - 520px));padding:6px 12px}
+@media (max-width:1100px){.credit{display:none}}
+.ptable{background:var(--panel2);border-radius:10px;padding:10px 12px}
+.ptable dl{margin:6px 0 0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;font-size:13px}
+.ptable dt{color:var(--muted)} .ptable dd{margin:0;font-family:var(--f-mono);font-weight:600;text-align:right}
+.cert{display:flex;flex-direction:column;gap:6px}
+.okc{color:var(--good);font-weight:700}.koc{color:var(--bad);font-weight:700}
+.callout{background:var(--pipe-soft);border-radius:12px;padding:12px 16px}
+.callout h4{margin:0 0 6px;font-size:14px}.callout ul{margin:0;padding-left:18px;font-size:13px;display:flex;flex-direction:column;gap:4px}.callout p{margin-top:8px}
+tr.tot td{font-weight:700;border-top:2px solid var(--line)}
+/* registro */
+.reg{position:fixed;inset:0;z-index:9;display:grid;place-items:center;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));background:rgba(14,30,26,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);touch-action:auto;overflow-y:auto}
+.reg-card{width:min(980px,100%);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);background:var(--panel);border-radius:22px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.4);user-select:text;-webkit-user-select:text}
+@media (max-width:760px){.reg-card{grid-template-columns:minmax(0,1fr)}}
+.reg-brand{background:#14302A;color:#EAF2EE;padding:34px 32px;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden}
+.reg-brand::after{content:"";position:absolute;right:-90px;bottom:-90px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,#E29B00 0 38%,transparent 39%),radial-gradient(circle,rgba(226,155,0,.25) 0 60%,transparent 61%);opacity:.5}
+.reg-brand .seal{width:96px;height:auto;background:#fff;border-radius:14px;padding:8px;margin-bottom:6px}
+.reg-brand .u{font-family:var(--f-display);font-weight:800;font-size:15px;letter-spacing:.01em}
+.reg-brand .f{font-size:13px;opacity:.8}
+.reg-brand h1{font-family:var(--f-display);font-weight:800;font-size:44px;margin:14px 0 0;letter-spacing:-.02em;color:#fff}
+.reg-brand .lead{margin:0;font-family:var(--f-display);font-size:16px;color:#F2B42A}
+.reg-brand .line{margin:6px 0 0;font-size:13.5px;opacity:.85;max-width:40ch}
+.reg-brand .docn{margin:auto 0 0;padding-top:22px;font-size:13px;opacity:.9;position:relative;z-index:1}
+.reg-brand .docn b{font-size:15px}
+.reg-form{padding:30px 32px;display:flex;flex-direction:column;gap:14px}
+.reg-form h2{font-size:22px}
+.seg{border:0;margin:0;padding:3px;display:inline-flex;background:var(--panel2);border-radius:12px;align-self:flex-start}
+.seg label{position:relative}.seg input{position:absolute;opacity:0}
+.seg span{display:block;padding:8px 16px;border-radius:9px;font-weight:700;font-size:13.5px;cursor:pointer;color:var(--muted)}
+.seg input:checked+span{background:var(--panel);color:var(--ink);box-shadow:0 2px 8px rgba(20,48,42,.12)}
+.seg input:focus-visible+span{outline:2px solid var(--accent)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.pgrid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:10px}
+@media (max-width:480px){.pgrid{grid-template-columns:minmax(0,1fr)}}
+.pf{display:flex;flex-direction:column;gap:4px;min-width:0}
+.pf label{font-size:12.5px;font-weight:700}.pf .opt{font-weight:400;color:var(--muted)}
+.pf input{border:1px solid var(--line);border-radius:9px;background:#fff;padding:9px 11px;font-size:14.5px;width:100%;min-width:0}
+.pf small{font-size:11px;color:var(--muted)}
+.err{color:var(--bad);font-size:13px;min-height:1em}
+.linkb{background:none;border:0;color:var(--pipe);font-weight:700;cursor:pointer;align-self:flex-start;padding:2px 0;text-decoration:underline;text-underline-offset:3px}
+/* panel docente */
+.doc{position:fixed;inset:0;z-index:10;background:var(--bg);overflow-y:auto;touch-action:auto;user-select:text;-webkit-user-select:text;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px))}
+.doc-login{max-width:420px;margin:8vh auto 0;background:var(--panel);border-radius:18px;padding:26px;display:flex;flex-direction:column;gap:10px;box-shadow:0 20px 60px rgba(20,48,42,.18)}
+.doc-login form{display:flex;flex-direction:column;gap:10px}
+.doc-wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.doc-head{display:flex;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 18px;flex-wrap:wrap}
+.doc-head h2{font-size:22px;margin:2px 0}.doc-head>div{flex:1;min-width:240px}
+.srcline{margin:0;font-size:13px;color:var(--muted)}.srcline.warn{color:var(--bad)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpis div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.kpis span{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.kpis b{font-family:var(--f-mono);font-size:22px;font-variant-numeric:tabular-nums}
+.doc section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.sec-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.sec-h h3{font-size:15px}
+table.dt{font-size:12.5px}table.dt td,table.dt th{white-space:nowrap}table.dt td.st{color:var(--accent);letter-spacing:1px}
+.pricegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.chkl{display:flex;gap:8px;align-items:center;font-size:13.5px}
+.dangerb{color:var(--bad);border-color:var(--bad);align-self:flex-start}
+.doc footer{text-align:center;padding:6px 0 18px}
+.boot{position:fixed;inset:0;display:grid;place-items:center;z-index:8;background:var(--bg);font-family:var(--f-display);font-size:15px;color:var(--muted);text-align:center;padding:0 16px}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+
+</head>
+<body>
+<canvas id="view" aria-label="Recorrido 3D por la planta virtual de néctares"></canvas>
+<div class="reticle" aria-hidden="true"></div>
+
+<header class="hud">
+  <div class="pill brand"><img class="usco lg" alt="Universidad Surcolombiana" width="30" height="31"><span style="min-width:0"><b>NectarLab</b><span>Ingeniería Agroindustrial · USCO</span></span></div>
+  <button class="pill brand" id="bMission" type="button" title="Órdenes de producción"><span style="min-width:0"><b id="mTitle">Turno 1</b><span id="mSub"></span></span></button>
+  <div class="pill score"><div><b id="hPts">0</b><span>Puntos</span></div><div><b id="hSt">0/18</b><span>Estrellas</span></div><div><b id="hRank" style="font-family:var(--f-body);color:var(--ink)">Practicante</b><span>Cargo</span></div></div>
+  <div class="tools"><button class="tb" id="bEq" type="button">Equipos</button><button class="tb" id="bMan" type="button">Manual</button><button class="tb team" id="bTeam" type="button">Equipo</button></div>
+  <div class="obj"><div class="pill" id="obj"></div></div>
+</header>
+
+<div class="pill help" id="help">W A S D o flechas para caminar · arrastra para mirar · <b>E</b> o clic sobre un equipo para operarlo</div>
+<div class="pill credit">Universidad Surcolombiana · Ingeniería Agroindustrial · Ing. Jaime Daniel Bustos, D.Sc.</div>
+<div class="joy" id="joy" aria-hidden="true"><i id="knob"></i></div>
+<button class="operate" id="operate" type="button" hidden></button>
+<aside class="sheet" id="sheet" hidden></aside>
+<div class="pill insp" id="insp" hidden><div><b id="inspName"></b><div class="note">Vista de inspección · arrastra para girar el equipo</div></div><button class="go" id="inspExit" type="button">Volver</button></div>
+<div class="modal" id="modal" hidden><div class="card" id="card" role="dialog" aria-modal="true"></div></div>
+<div class="reg" id="reg" hidden>
+  <div class="reg-card">
+    <section class="reg-brand">
+      <img class="usco seal" alt="Escudo de la Universidad Surcolombiana" width="96" height="99">
+      <div class="u">Universidad Surcolombiana</div>
+      <div class="f">Facultad de Ingeniería · Programa de Ingeniería Agroindustrial</div>
+      <h1>NectarLab</h1>
+      <p class="lead">Planta Virtual de Procesos Agroindustriales</p>
+      <p class="line">Línea de néctares de fruta a escala industrial: 5.000 kg por lote, pasteurizador de placas de 5.000 L/h y caldera de 20 BHP.</p>
+      <p class="docn">Docente<br><b>Ing. Jaime Daniel Bustos, D.Sc.</b></p>
+    </section>
+    <form class="reg-form" id="regForm" novalidate></form>
+  </div>
+</div>
+<div class="doc" id="doc" hidden></div>
+<div class="toast" id="toast" role="status"></div>
+<div class="boot" id="boot">Encendiendo la planta…</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/environments/RoomEnvironment.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/RoundedBoxGeometry.js"></script>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const fmt=(x,d=1)=>Number.isFinite(x)?x.toLocaleString("es-CO",{minimumFractionDigits:d,maximumFractionDigits:d}):"—";
+const cop=x=>"$"+Math.round(x).toLocaleString("es-CO");
+const USCO_LOGO="data:image/png;base64,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";
+const starStr=(n,max=3)=>"★".repeat(n)+`<span class="off">${"★".repeat(max-n)}</span>`;
+
+// ================== MODELO DE PROCESO (escala industrial) ==================
+const FR={
+  maracuya:{name:"Maracuyá",minFruit:15,minSol:1.80,tabBx:12.0,tabTA:2.5,col:0xF2B705},
+  mango:{name:"Mango",minFruit:18,minSol:2.25,tabBx:12.5,tabTA:0.3,col:0xF39A0B},
+  lulo:{name:"Lulo",minFruit:18,minSol:1.08,tabBx:6.0,tabTA:1.0,col:0xC9C22E},
+  guayaba:{name:"Guayaba",minFruit:18,minSol:1.44,tabBx:7.5,tabTA:0.45,col:0xEE7F86},
+  mora:{name:"Mora",minFruit:14,minSol:1.17,tabBx:6.0,tabTA:2.0,col:0x6E1F4C}
+};
+// Precios unitarios (COP). El docente puede cambiarlos desde el panel docente.
+const PRICE_META=[
+  ["pulpa_maracuya","Pulpa de maracuyá","$/kg",12000,"Referencia docente: ajustar con cotización"],
+  ["pulpa_mango_A","Pulpa de mango, lote A (cosecha temprana)","$/kg",6000,"Referencia docente: ajustar con cotización"],
+  ["pulpa_mango_B","Pulpa de mango, lote B (estándar)","$/kg",8000,"Referencia docente: ajustar con cotización"],
+  ["pulpa_lulo","Pulpa de lulo","$/kg",9000,"Referencia docente: ajustar con cotización"],
+  ["pulpa_guayaba","Pulpa de guayaba","$/kg",5500,"Referencia docente: ajustar con cotización"],
+  ["pulpa_mora","Pulpa de mora","$/kg",9000,"Referencia docente: ajustar con cotización"],
+  ["azucar","Azúcar refinada","$/kg",3700,"SIPSA-DANE, precio mayorista, semana 5–11 sep 2026"],
+  ["citrico","Ácido cítrico anhidro grado alimentario","$/kg",9500,"Referencia docente: ajustar con cotización"],
+  ["agua","Agua potable de proceso","$/kg",6,"Referencia docente: ajustar con la tarifa industrial local"],
+  ["vapor","Vapor saturado (combustible + tratamiento de agua)","$/kg",180,"Referencia docente: ajustar con el costo de la caldera"],
+  ["placas_50","Paquete de regeneración ε = 50 % (costo horario)","$/h",10000,"Depreciación y mantenimiento, referencia docente"],
+  ["placas_70","Paquete de regeneración ε = 70 % (costo horario)","$/h",20000,"Depreciación y mantenimiento, referencia docente"],
+  ["placas_85","Paquete de regeneración ε = 85 % (costo horario)","$/h",45000,"Depreciación y mantenimiento, referencia docente"]
+];
+const PR_DEFAULT=Object.fromEntries(PRICE_META.map(p=>[p[0],p[3]]));
+let PR={...PR_DEFAULT};
+const MICRO={D:0.08,T:85,z:7}, AROMA={D:6,T:85,z:25}, HFG=2202, STEAM_MAX=300;
+const PIPES={'2"':0.0475,'2½"':0.0602,'3"':0.0729};
+const EPS={"0":{e:0,key:null,lbl:"Sin regeneración"},"0.5":{e:.5,key:"placas_50",lbl:"ε = 50 %"},"0.7":{e:.7,key:"placas_70",lbl:"ε = 70 %"},"0.85":{e:.85,key:"placas_85",lbl:"ε = 85 %"}};
+const epsLbl=k=>{const o=EPS[k];return o.key?`${o.lbl} · ${cop(PR[o.key])}/h`:o.lbl};
+const epsRent=k=>EPS[k].key?PR[EPS[k].key]:0;
+
+function simulate(s){
+  const P=s.pulps.reduce((a,p)=>a+p.kg,0);
+  const water=s.batch-P-s.sugar-s.citric;
+  const fsolArr=s.pulps.map(p=>p.kg*p.Bx/100);
+  const fsol=fsolArr.reduce((a,b)=>a+b,0);
+  const Bx=(fsol+s.sugar+s.citric)/s.batch*100;
+  const TA=(s.pulps.reduce((a,p)=>a+p.kg*p.TA/100,0)+s.citric)/s.batch*100;
+  const pH=Math.min(4.8,Math.max(2.2,3.55-0.85*Math.log10(Math.max(TA,1e-3)/0.3)));
+  let pi=0;fsolArr.forEach((v,i)=>{if(v>fsolArr[pi])pi=i});
+  let tFast=s.tHold,tMean=s.tHold,Re=null,v=null,vmax=null;
+  if(s.tube){const A=Math.PI*s.tube.D**2/4;v=s.tube.Q/3600/1000/A;Re=s.tube.rho*v*s.tube.D/s.tube.mu;vmax=Re<2100?2*v:1.22*v;tFast=s.tube.L/vmax;tMean=s.tube.L/v}
+  const Dm=MICRO.D*Math.pow(10,(MICRO.T-s.T)/MICRO.z);
+  const logR=(tFast/60)/Dm;
+  const Da=AROMA.D*Math.pow(10,(AROMA.T-s.T)/AROMA.z);
+  const aroma=100*Math.pow(10,-(tMean/60)/Da);
+  const cp=1.675+0.025*(100-Bx-1);
+  const Treg=s.Tin+s.eps*(s.T-s.Tin);
+  const Qh=s.flow*cp*(s.T-Treg),steam=Qh/HFG,hours=s.batch/s.flow;
+  const costItems=[...s.pulps.map(p=>[`Pulpa de ${FR[p.fruit].name.toLowerCase()}${p.lotLbl?" ("+p.lotLbl+")":""}`,p.kg,PR[p.priceKey]]),["Azúcar",s.sugar,PR.azucar],["Ácido cítrico",s.citric,PR.citrico],["Agua",Math.max(0,water),PR.agua]];
+  const raw=costItems.reduce((a,c)=>a+c[1]*c[2],0);
+  const costH=steam*PR.vapor+(s.rent||0);
+  const energy=costH*hours;
+  return {P,water,fsol,fsolArr,fsolPct:fsol/s.batch*100,fruitPct:P/s.batch*100,Bx,TA,pH,pred:s.pulps[pi].fruit,
+    tFast,tMean,Re,v,vmax,Dm,logR,aroma,cp,Treg,Qh,steam,raw,rawKg:raw/s.batch,costItems,energy,costH,cost:raw+energy,costKg:(raw+energy)/s.batch,s};
+}
+function legal(r){
+  const f=FR[r.pred];const mix=r.s.pulps.length>1;
+  return [
+    {cat:"seg",label:"Inocuidad: ≥ 5 reducciones decimales del microorganismo de referencia",ok:r.logR>=5,d:fmt(r.logR,1)+" log",h:"Sube la temperatura o el tiempo de sostenimiento. Con z = 7 °C, cada 7 °C más dividen D por 10."},
+    {cat:"seg",label:`Vapor ≤ ${STEAM_MAX} kg/h (capacidad de la caldera)`,ok:r.steam<=STEAM_MAX+1e-9,d:fmt(r.steam,0)+" kg/h",h:"Sin vapor suficiente el calentador no alcanza la temperatura y el lote sale sin pasteurizar. Recupera más calor en el regenerador."},
+    {cat:"norma",label:`Néctar: contenido de ${mix?"fruta (predomina "+f.name.toLowerCase()+")":"pulpa de "+f.name.toLowerCase()} ≥ ${f.minFruit} % m/m (Tabla 8)`,ok:r.fruitPct>=f.minFruit-1e-9,d:fmt(r.fruitPct,1)+" %",h:"El néctar no cumple el contenido mínimo de fruta."},
+    {cat:"norma",label:`Néctar: sólidos solubles aportados por la fruta ≥ ${fmt(f.minSol,2)} % (Tabla 8)`,ok:r.fsolPct>=f.minSol-1e-9,d:fmt(r.fsolPct,2)+" %",h:`Si la pulpa trae menos °Brix que el mínimo de la Tabla 1 (${fmt(f.tabBx,1)} °Bx), el porcentaje mínimo de pulpa no alcanza a aportar los sólidos que exige la norma: necesitas más pulpa.`},
+    {cat:"norma",label:"Néctar: °Brix ≥ 10 (Tabla 9)",ok:r.Bx>=10,d:fmt(r.Bx,2)+" °Bx",h:"Agrega azúcar o pulpa."},
+    {cat:"norma",label:"Néctar: acidez titulable ≥ 0,2 % como ácido cítrico (Tabla 9)",ok:r.TA>=0.2,d:fmt(r.TA,2)+" %",h:"Agrega ácido cítrico."},
+    {cat:"norma",label:"Néctar: pH entre 2,5 y 4,6 (Tabla 9)",ok:r.pH>=2.5&&r.pH<=4.6,d:"pH "+fmt(r.pH,2),h:"Ajusta la acidez."}];
+}
+const inR=(x,a,b)=>x>=a-1e-9&&x<=b+1e-9;
+const EFF_TOL=0.03;
+// costo mínimo factible (se recalcula cuando cambian los precios)
+const OPT={};
+function minFeasible(m){
+  const key=m.id+"|"+JSON.stringify(PR);if(OPT[key]!==undefined)return OPT[key];
+  if(m.optimize){OPT[key]=m.optimize();return OPT[key]}
+  let best=Infinity;
+  for(const p of m.candidates()){const r=simulate(m.spec(p));
+    const ch=[...legal(r),...m.checks(r,{skipEff:true})];
+    if(ch.every(c=>c.ok)){const v=m.effMetric(r);if(v<best)best=v}}
+  OPT[key]=best;return best;
+}
+function sugarFor(target,batch,fsol,citric){return Math.max(0,Math.ceil((target*batch/100-fsol-citric)*10)/10)}
+function acidFor(target,batch,pulpAcid){return Math.max(0,Math.ceil((target*batch/100-pulpAcid)*10)/10)}
+
+const BATCH=5000,FLOW=5000;
+const MISSIONS=[
+{id:"m1",product:"Néctar de maracuyá",sub:"Primer pedido",fruit:"maracuya",client:"Cafeterías escolares del Huila",
+ brief:"Llegó tu primer pedido: un lote de néctar de maracuyá. La pulpa de maracuyá que hay en la cava llegó con menos sólidos solubles de lo habitual. Formula el néctar para que cumpla la Resolución 3929 de 2013 y lo que pide el cliente, al menor costo de materias primas posible.",
+ concept:"Balance de materia de sólidos solubles. La Tabla 8 fija dos mínimos para el néctar: el porcentaje de pulpa y los sólidos solubles que aporta la fruta.",
+ order:[["Producto","Néctar de maracuyá"],["Lote","5.000 kg"],["°Brix","12,0 ± 0,5"],["Fruta declarada en rótulo","≥ 15 %"],["Costo de MP","≤ mínimo + 3 %"]],
+ lot:[["Pulpa de maracuyá","11,4 °Bx · acidez 3,0 %"]],pulpLots:[["Pulpa de maracuyá","maracuya",11.4,3.0]],priceKeys:["pulpa_maracuya","azucar","citrico","agua"],
+ inputs:[{k:"pulpa",st:"mix",l:"Pulpa de maracuyá",u:"kg",min:0,max:2000,step:1,def:750},{k:"azucar",st:"mix",l:"Azúcar",u:"kg",min:0,max:1000,step:1,def:480},{k:"citrico",st:"mix",l:"Ácido cítrico",u:"kg",min:0,max:100,step:0.1,def:0}],
+ fixed:{heat:"Pasteurización fija del turno: 90 °C",hold:"Sostenimiento fijo: 15 s",reg:"Regenerador fijo: ε = 70 %"},
+ predict:{l:"Tu predicción: °Brix final del néctar",u:"°Bx",tol:0.2,abs:true,get:r=>r.Bx},
+ spec:p=>({batch:BATCH,flow:FLOW,Tin:8,T:90,tHold:15,eps:.7,rent:PR.placas_70,pulps:[{fruit:"maracuya",Bx:11.4,TA:3.0,priceKey:"pulpa_maracuya",kg:p.pulpa}],sugar:p.azucar,citric:p.citrico}),
+ effMetric:r=>r.rawKg,
+ *candidates(){for(let pu=700;pu<=1500;pu+=1){const s=sugarFor(11.5,BATCH,pu*0.114,0);yield {pulpa:pu,azucar:s,citrico:0}}},
+ checks(r,o={}){const L=[
+  {cat:"cliente",label:"°Brix 12,0 ± 0,5",ok:inR(r.Bx,11.5,12.5),d:fmt(r.Bx,2)+" °Bx",h:"Recalcula el azúcar con el balance de sólidos solubles."},
+  {cat:"cliente",label:"Fruta declarada en el rótulo ≥ 15 %",ok:r.fruitPct>=15,d:fmt(r.fruitPct,1)+" %",h:"El rótulo promete 15 % de fruta."}];
+  if(!o.skipEff){const mn=minFeasible(this);L.push({cat:"efic",label:"Costo de materias primas dentro del 3 % del mínimo posible",ok:r.rawKg<=mn*(1+EFF_TOL),d:`${cop(r.rawKg)}/kg · meta ≤ ${cop(mn*(1+EFF_TOL))}/kg`,h:"La pulpa es la materia prima más cara: usa la mínima que cumpla la norma y completa los sólidos con azúcar."})}return L}},
+{id:"m2",product:"Néctar de mango",sub:"Cosecha temprana",fruit:"mango",client:"Cadena de supermercados regional",
+ brief:"En la cava hay dos lotes de pulpa de mango. El lote A es de cosecha temprana: menos dulce y más barato. El lote B es pulpa estándar. El cliente quiere un néctar de mango con 25 % de fruta en el rótulo y una acidez definida. Elige el lote y formula.",
+ concept:"Selección de materia prima y ajuste de acidez con ácido cítrico. Compara lo que cuesta un kilogramo de sólidos en cada lote frente al azúcar.",
+ order:[["Producto","Néctar de mango"],["Lote","5.000 kg"],["°Brix","13,0 ± 0,4"],["Acidez","0,30 – 0,45 %"],["Fruta declarada en rótulo","≥ 25 %"],["Costo de MP","≤ mínimo + 3 %"]],
+ lot:[["Lote A","10,8 °Bx · acidez 0,32 %"],["Lote B","14,2 °Bx · acidez 0,40 %"]],pulpLots:[["Mango, lote A","mango",10.8,0.32],["Mango, lote B","mango",14.2,0.40]],priceKeys:["pulpa_mango_A","pulpa_mango_B","azucar","citrico","agua"],
+ inputs:[{k:"lote",st:"rec",l:"Lote de pulpa a despachar",type:"sel",opts:[["A","Lote A (cosecha temprana)"],["B","Lote B (estándar)"]],def:"B"},
+  {k:"pulpa",st:"mix",l:"Pulpa de mango",u:"kg",min:0,max:3000,step:1,def:1300},{k:"azucar",st:"mix",l:"Azúcar",u:"kg",min:0,max:1000,step:1,def:420},{k:"citrico",st:"mix",l:"Ácido cítrico",u:"kg",min:0,max:100,step:0.1,def:8}],
+ fixed:{heat:"Pasteurización fija: 90 °C",hold:"Sostenimiento fijo: 15 s",reg:"Regenerador fijo: ε = 70 %"},
+ predict:{l:"Tu predicción: acidez titulable final",u:"%",tol:0.02,abs:true,get:r=>r.TA},
+ lotOf:p=>p.lote==="A"?{Bx:10.8,TA:0.32,priceKey:"pulpa_mango_A",lotLbl:"lote A"}:{Bx:14.2,TA:0.40,priceKey:"pulpa_mango_B",lotLbl:"lote B"},
+ spec(p){return {batch:BATCH,flow:FLOW,Tin:8,T:90,tHold:15,eps:.7,rent:PR.placas_70,pulps:[{fruit:"mango",...this.lotOf(p),kg:p.pulpa}],sugar:p.azucar,citric:p.citrico}},
+ effMetric:r=>r.rawKg,
+ *candidates(){for(const lote of ["A","B"]){const L=lote==="A"?{Bx:10.8,TA:.32}:{Bx:14.2,TA:.40};for(let pu=1250;pu<=2500;pu+=5){const ac=acidFor(0.30,BATCH,pu*L.TA/100);yield {lote,pulpa:pu,citrico:ac,azucar:sugarFor(12.6,BATCH,pu*L.Bx/100,ac)}}}},
+ checks(r,o={}){const L=[
+  {cat:"cliente",label:"°Brix 13,0 ± 0,4",ok:inR(r.Bx,12.6,13.4),d:fmt(r.Bx,2)+" °Bx",h:"Ajusta el azúcar según los °Brix del lote que elegiste. El ácido cítrico también suma sólidos solubles."},
+  {cat:"cliente",label:"Acidez 0,30 – 0,45 %",ok:inR(r.TA,0.30,0.45),d:fmt(r.TA,3)+" %",h:"El mango aporta poca acidez: calcula los kilogramos de ácido cítrico que faltan."},
+  {cat:"cliente",label:"Fruta declarada en el rótulo ≥ 25 %",ok:r.fruitPct>=25,d:fmt(r.fruitPct,1)+" %",h:"25 % de 5.000 kg."}];
+  if(!o.skipEff){const mn=minFeasible(this);L.push({cat:"efic",label:"Costo de materias primas dentro del 3 % del mínimo posible",ok:r.rawKg<=mn*(1+EFF_TOL),d:`${cop(r.rawKg)}/kg · meta ≤ ${cop(mn*(1+EFF_TOL))}/kg`,h:"Compara el costo de un kilogramo de sólidos solubles en cada lote con el del azúcar."})}return L}},
+{id:"m3",product:"Néctar de lulo",sub:"El aroma fresco",fruit:"lulo",client:"Restaurantes de cocina huilense",
+ brief:"La formulación del néctar de lulo ya está aprobada. Fija la temperatura en el calentador y el tiempo en el tubo de sostenimiento: el néctar debe ser inocuo y conservar el aroma fresco del lulo. El control del equipo no sostiene menos de 10 s.",
+ concept:"El microorganismo de referencia (z = 7 °C) es mucho más sensible a la temperatura que el aroma (z = 25 °C). Busca la ventana óptima de alta temperatura y tiempo corto.",
+ order:[["Producto","Néctar de lulo"],["Lote","5.000 kg"],["Inocuidad","≥ 5 reducciones log"],["Aroma fresco","≥ 90 %"],["Proceso óptimo","aroma ≥ 91,5 %"]],
+ lot:[["Pulpa de lulo","1.000 kg · 7,0 °Bx · acidez 1,6 %"],["Azúcar","560 kg"]],pulpLots:[["Pulpa de lulo","lulo",7.0,1.6]],priceKeys:[],
+ inputs:[{k:"T",st:"heat",l:"Temperatura de pasteurización",u:"°C",min:70,max:95,step:0.5,def:80},{k:"t",st:"hold",l:"Tiempo de sostenimiento",u:"s",min:10,max:300,step:1,def:120}],
+ fixed:{mix:"Formulación aprobada: 1.000 kg de pulpa y 560 kg de azúcar en 5.000 kg",reg:"Regenerador fijo: ε = 85 %"},
+ predict:{l:"Tu predicción: reducciones decimales logradas",u:"log",tol:0.05,get:r=>r.logR},
+ spec:p=>({batch:BATCH,flow:FLOW,Tin:8,T:p.T,tHold:p.t,eps:.85,rent:PR.placas_85,pulps:[{fruit:"lulo",Bx:7.0,TA:1.6,priceKey:"pulpa_lulo",kg:1000}],sugar:560,citric:0}),
+ checks:r=>[
+  {cat:"cliente",label:"Aroma fresco ≥ 90 %",ok:r.aroma>=90,d:fmt(r.aroma,1)+" %",h:"Tiempos largos a baja temperatura destruyen el aroma. Prueba alta temperatura y tiempo corto."},
+  {cat:"efic",label:"Aroma ≥ 91,5 % (proceso óptimo)",ok:r.aroma>=91.5,d:fmt(r.aroma,1)+" %",h:"Con el tiempo mínimo de 10 s, ¿qué temperatura apenas alcanza 5 log?"}]},
+{id:"m4",product:"Néctar de guayaba",sub:"El tubo de sostenimiento",fruit:"guayaba",client:"Auditoría de aseguramiento de calidad",
+ brief:"El néctar de guayaba es viscoso. Aseguramiento de calidad exige que la partícula más rápida permanezca al menos 15 s a 90 °C, y el cliente pide que el tiempo medio no pase de 40 s para cuidar el color. Rediseña el tubo de sostenimiento: verás cómo cambia en la planta.",
+ concept:"Régimen de flujo. Si el flujo es laminar, la partícula más rápida viaja al doble de la velocidad media.",
+ order:[["Producto","Néctar de guayaba"],["Caudal","5.000 L/h"],["ρ","1.050 kg/m³"],["μ","45 mPa·s"],["t partícula más rápida","≥ 15 s"],["t medio","≤ 40 s"],["Espacio disponible","L ≤ 12 m"]],
+ pulpLots:[["Pulpa de guayaba","guayaba",8.0,0.6]],lot:[["Temperatura","90 °C"],["Diámetro interno sanitario","2\" 47,5 · 2½\" 60,2 · 3\" 72,9 mm"]],priceKeys:[],
+ inputs:[{k:"D",st:"hold",l:"Diámetro de tubería",type:"sel",opts:[['2"','2" (47,5 mm)'],['2½"','2½" (60,2 mm)'],['3"','3" (72,9 mm)']],def:'2"'},{k:"L",st:"hold",l:"Longitud del tubo",u:"m",min:1,max:40,step:0.1,def:8}],
+ fixed:{heat:"Temperatura fija: 90 °C",reg:"Regenerador fijo: ε = 70 %",mix:"Formulación aprobada: 1.000 kg de pulpa a 8,0 °Bx, 550 kg de azúcar y 5 kg de ácido cítrico"},
+ predict:{l:"Tu predicción: número de Reynolds",u:"Re",tol:0.05,get:r=>r.Re},
+ spec:p=>({batch:BATCH,flow:5250,Tin:8,T:90,tHold:0,eps:.7,rent:PR.placas_70,tube:{L:p.L,D:PIPES[p.D],Q:5000,rho:1050,mu:0.045},pulps:[{fruit:"guayaba",Bx:8.0,TA:0.6,priceKey:"pulpa_guayaba",kg:1000}],sugar:550,citric:5}),
+ checks:r=>[
+  {cat:"seg",label:"Partícula más rápida ≥ 15 s (aseguramiento de calidad)",ok:r.tFast>=15,d:fmt(r.tFast,1)+" s",h:"No dimensiones con la velocidad media: en flujo laminar v_máx = 2 v̄."},
+  {cat:"cliente",label:"Tiempo medio ≤ 40 s (color)",ok:r.tMean<=40,d:fmt(r.tMean,1)+" s",h:"El tubo está sobredimensionado."},
+  {cat:"efic",label:"Longitud ≤ 12 m (espacio en planta)",ok:r.s.tube.L<=12+1e-9,d:fmt(r.s.tube.L,1)+" m",h:"Un diámetro mayor reduce la velocidad y la longitud necesaria."}]},
+{id:"m5",product:"Néctar de mora",sub:"El vapor no alcanza",fruit:"mora",client:"Jefatura de mantenimiento",
+ brief:"La caldera de 20 BHP entrega como máximo 300 kg/h de vapor. El néctar de mora sale de la cava a 8 °C y se pasteuriza a 88 °C a razón de 5.000 kg/h. Ve al regenerador, elige el paquete de placas y calcula el consumo de vapor.",
+ concept:"Balance de energía y regeneración. Más placas recuperan más calor, pero cuestan más por hora de operación.",
+ order:[["Producto","Néctar de mora"],["Flujo","5.000 kg/h"],["T de entrada","8 °C"],["T de pasteurización","88 °C"],["Caldera","≤ 300 kg/h de vapor"],["Costo de energía","el menor entre las opciones factibles"]],
+ lot:[["Néctar","12,0 °Bx"],["h_fg","2.202 kJ/kg"]],pulpLots:[["Pulpa de mora","mora",7.5,2.2]],priceKeys:["vapor","placas_50","placas_70","placas_85"],
+ inputs:[{k:"eps",st:"reg",l:"Paquete de placas de regeneración",type:"sel",opts:()=>Object.keys(EPS).map(k=>[k,epsLbl(k)]),def:"0.5"}],
+ fixed:{heat:"Temperatura fija: 88 °C",hold:"Sostenimiento fijo: 15 s",mix:"Formulación aprobada: 800 kg de pulpa de mora a 7,5 °Bx, 530 kg de azúcar y 10 kg de ácido cítrico"},
+ predict:{l:"Tu predicción: consumo de vapor",u:"kg/h",tol:0.05,get:r=>r.steam},
+ spec:p=>({batch:BATCH,flow:FLOW,Tin:8,T:88,tHold:15,eps:EPS[p.eps].e,rent:epsRent(p.eps),pulps:[{fruit:"mora",Bx:7.5,TA:2.2,priceKey:"pulpa_mora",kg:800}],sugar:530,citric:10}),
+ effMetric:r=>r.costH,
+ *candidates(){for(const k of Object.keys(EPS))yield {eps:k}},
+ checks(r,o={}){if(o.skipEff)return [];const mn=minFeasible(this);return [
+  {cat:"efic",label:"Costo de energía: el menor entre las opciones factibles",ok:r.costH<=mn*1.0001,d:`${cop(r.costH)}/h · mínimo ${cop(mn)}/h`,h:"Más regeneración no siempre es más barata: compara el costo horario de las placas con el ahorro de vapor."}]}},
+{id:"m6",product:"Néctar de mango y maracuyá",sub:"Prueba de jefe de producción",fruit:"mango",client:"Cadena de tiendas, contrato anual",
+ brief:"Prueba final. Diseña el néctar mixto completo: formulación con los lotes que conoces, temperatura, sostenimiento y regenerador. El rótulo dirá «néctar de mango y maracuyá», así que el mango debe ser la fruta predominante, y el cliente quiere sentir el maracuyá.",
+ concept:"Integración. La fruta predominante es la que más sólidos solubles aporta (Res. 3929, numeral 6.5.1). El maracuyá también aporta acidez.",
+ order:[["Producto","Néctar de mango y maracuyá"],["Lote / flujo","5.000 kg · 5.000 kg/h"],["°Brix","13,0 ± 0,4"],["Acidez","0,40 – 0,60 %"],["Fruta total","≥ 30 %"],["Maracuyá","≥ 8 % del lote"],["Aroma","≥ 90 %"],["Caldera","≤ 300 kg/h"],["Costo total","≤ mínimo + 3 %"]],
+ lot:[["Mango, lote A","10,8 °Bx · acidez 0,32 %"],["Maracuyá","11,4 °Bx · acidez 3,0 %"],["T de entrada","8 °C"]],pulpLots:[["Mango, lote A","mango",10.8,0.32],["Pulpa de maracuyá","maracuya",11.4,3.0]],priceKeys:["pulpa_mango_A","pulpa_maracuya","azucar","citrico","agua","vapor","placas_50","placas_70","placas_85"],
+ inputs:[{k:"mango",st:"mix",l:"Pulpa de mango (lote A)",u:"kg",min:0,max:3000,step:1,def:900},{k:"mara",st:"mix",l:"Pulpa de maracuyá",u:"kg",min:0,max:2000,step:1,def:700},
+  {k:"azucar",st:"mix",l:"Azúcar",u:"kg",min:0,max:1000,step:1,def:430},{k:"citrico",st:"mix",l:"Ácido cítrico",u:"kg",min:0,max:100,step:0.1,def:0},
+  {k:"T",st:"heat",l:"Temperatura de pasteurización",u:"°C",min:75,max:95,step:0.5,def:85},{k:"t",st:"hold",l:"Tiempo de sostenimiento",u:"s",min:10,max:120,step:1,def:30},
+  {k:"eps",st:"reg",l:"Paquete de placas de regeneración",type:"sel",opts:()=>Object.keys(EPS).map(k=>[k,epsLbl(k)]),def:"0.5"}],
+ fixed:{},
+ predict:{l:"Tu predicción: °Brix final del néctar",u:"°Bx",tol:0.2,abs:true,get:r=>r.Bx},
+ spec:p=>({batch:BATCH,flow:FLOW,Tin:8,T:p.T,tHold:p.t,eps:EPS[p.eps].e,rent:epsRent(p.eps),
+   pulps:[{fruit:"mango",Bx:10.8,TA:0.32,priceKey:"pulpa_mango_A",lotLbl:"lote A",kg:p.mango},{fruit:"maracuya",Bx:11.4,TA:3.0,priceKey:"pulpa_maracuya",kg:p.mara}],sugar:p.azucar,citric:p.citrico}),
+ effMetric:r=>r.costKg,
+ optimize(){
+   // 1) formulación de mínimo costo de materias primas (con un proceso térmico que sí cumple)
+   let bestRaw=Infinity,bestP=null;
+   for(let ma=400;ma<=1600;ma+=5)for(let mg=400;mg<=2600;mg+=5){if(ma+mg<1500)continue;
+     const ac=acidFor(0.40,BATCH,mg*.0032+ma*.03);const su=sugarFor(12.6,BATCH,mg*.108+ma*.114,ac);
+     const p={mango:mg,mara:ma,azucar:su,citrico:ac,T:88,t:10,eps:"0.85"};const r=simulate(this.spec(p));
+     if(r.rawKg>=bestRaw)continue;
+     if([...legal(r),...this.checks(r,{skipEff:true})].every(c=>c.ok)){bestRaw=r.rawKg;bestP=p}}
+   if(!bestP)return Infinity;
+   // 2) proceso térmico y regenerador de mínimo costo de energía para esa formulación
+   let bestE=Infinity;
+   for(let T=75;T<=95;T+=0.5){let tt=null;for(let t=10;t<=120;t++){const r=simulate(this.spec({...bestP,T,t,eps:"0"}));if(r.logR>=5){if(r.aroma>=90)tt=t;break}}
+     if(tt===null)continue;
+     for(const e of Object.keys(EPS)){const r=simulate(this.spec({...bestP,T,t:tt,eps:e}));if(r.steam<=STEAM_MAX&&r.energy/BATCH<bestE)bestE=r.energy/BATCH}}
+   return bestRaw+bestE;
+ },
+ checks(r,o={}){const L=[
+  {cat:"cliente",label:"Fruta predominante: mango",ok:r.pred==="mango",d:"mango "+fmt(r.fsolArr[0],0)+" · maracuyá "+fmt(r.fsolArr[1],0)+" kg de sólidos",h:"El mango debe aportar más sólidos solubles que el maracuyá."},
+  {cat:"cliente",label:"Maracuyá ≥ 8 % del lote (perfil de sabor)",ok:r.s.pulps[1].kg>=400,d:fmt(r.s.pulps[1].kg/BATCH*100,1)+" %",h:"8 % de 5.000 kg."},
+  {cat:"cliente",label:"°Brix 13,0 ± 0,4",ok:inR(r.Bx,12.6,13.4),d:fmt(r.Bx,2)+" °Bx",h:"Cierra el balance de sólidos con azúcar."},
+  {cat:"cliente",label:"Acidez 0,40 – 0,60 %",ok:inR(r.TA,0.40,0.60),d:fmt(r.TA,3)+" %",h:"Usa la acidez del maracuyá y completa con ácido cítrico si hace falta."},
+  {cat:"cliente",label:"Fruta total ≥ 30 %",ok:r.fruitPct>=30,d:fmt(r.fruitPct,1)+" %",h:"Suma de ambas pulpas sobre 5.000 kg."},
+  {cat:"cliente",label:"Aroma fresco ≥ 90 %",ok:r.aroma>=90,d:fmt(r.aroma,1)+" %",h:"Recuerda la ventana que encontraste con el lulo."}];
+  if(!o.skipEff){const mn=minFeasible(this);L.push({cat:"efic",label:"Costo total (materias primas + energía) dentro del 3 % del mínimo posible",ok:r.costKg<=mn*(1+EFF_TOL),d:`${cop(r.costKg)}/kg · meta ≤ ${cop(mn*(1+EFF_TOL))}/kg`,h:"Revisa cuánta pulpa usas, cómo cierras la acidez y qué regenerador eliges."})}return L}}
+];
+MISSIONS.forEach(m=>{m.title=m.product});
+
+// ================== EQUIPOS ==================
+const ST={
+ rec:{name:"Cava y recepción de pulpa",x:-15,info:"Cuarto frío a 4 °C donde se reciben los tambores de pulpa. Cada lote llega con su certificado de °Brix y acidez titulable. La Tabla 1 de la Resolución 3929 fija los mínimos de la pulpa; la Tabla 8, los del néctar que vas a producir con ella."},
+ mix:{name:"Tanque de formulación",x:-9,info:"Tanque TK-101 de 6 m³ en acero inoxidable, enchaquetado, con agitador de turbina. Se pesan pulpa, azúcar y ácido cítrico; el agua completa la masa del lote. Aquí se cierra el balance de materia."},
+ reg:{name:"Regenerador de placas",x:-3.5,info:"Sección de regeneración del pasteurizador de placas (5.000 L/h). El néctar caliente que sale del tubo de sostenimiento precalienta el néctar frío que entra. La eficiencia ε es la fracción del salto térmico que se recupera sin gastar vapor."},
+ heat:{name:"Calentador y caldera",x:1.5,info:"Sección de calentamiento con vapor saturado de la caldera pirotubular de 20 BHP, que entrega como máximo 300 kg/h de vapor. Lleva el néctar desde la temperatura de regeneración hasta la de pasteurización."},
+ hold:{name:"Tubo de sostenimiento",x:7.2,info:"Tubería sanitaria en serpentín, con pendiente ascendente, donde el néctar permanece a la temperatura de pasteurización. Al final hay un termorregistrador y una válvula de desviación de flujo: si la temperatura cae, el producto regresa al tanque."},
+ pack:{name:"Enfriamiento y envasado",x:14,info:"Sección de enfriamiento con agua helada y llenadora rotativa de botellas PET. Aquí se ve si el lote se libera o se retiene."},
+ qa:{name:"Laboratorio de calidad",x:10,qa:true,info:"Refractómetro, potenciómetro y titulación. Aquí registras tu cálculo en la bitácora y liberas la producción del lote."}
+};
+const ORDER=["rec","mix","reg","heat","hold","pack","qa"];
+
+// ================== CONFIGURACIÓN DE DESPLIEGUE ==================
+const VERSION="2026.10.07-a";
+const DOCENTE_CODE="NECTAR-2026";   // debe coincidir con SECRET en el Apps Script
+const SHEET_WEBAPP_URL="";          // pegar aquí la URL /exec del Apps Script «Registro NectarLab»
+const DOCENTE_NOMBRE="Ing. Jaime Daniel Bustos, D.Sc.";
+
+// ================== ESTADO ==================
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const SS={get(k){try{return JSON.parse(sessionStorage.getItem(k)||"null")}catch(e){return null}},set(k,v){try{v===null?sessionStorage.removeItem(k):sessionStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let CONFIG=LS.get("nectarlab-config",{precios:{},desbloquear:false});
+function applyConfig(){PR={...PR_DEFAULT};Object.entries(CONFIG.precios||{}).forEach(([k,v])=>{if(k in PR_DEFAULT&&Number.isFinite(+v)&&+v>=0)PR[k]=+v})}
+applyConfig();
+let PROG=LS.get("nectarlab-progreso",{teams:{}});if(!PROG.teams)PROG={teams:{}};
+let LOG=LS.get("nectarlab-registros",[]);if(!Array.isArray(LOG))LOG=[];
+let profile=SS.get("nectarlab-sesion");
+const teamKey=p=>p.integrantes.map(x=>x.codigo).sort().join("-");
+let save={time:{total:0},attempts:{}};
+function loadTeam(){if(!profile){save={time:{total:0},attempts:{}};return}const k=teamKey(profile);PROG.teams[k]=PROG.teams[k]||{};save=PROG.teams[k];save.time=save.time||{total:0};save.attempts=save.attempts||{}}
+loadTeam();
+const persist=()=>LS.set("nectarlab-progreso",PROG);
+let cur=save._cur&&MISSIONS.find(m=>m.id===save._cur)?save._cur:"m1";
+let vals={};let visited=new Set();let lastR=null;let producing=0;let pred="";
+const M=()=>MISSIONS.find(x=>x.id===cur);
+function initVals(m){if(vals[m.id])return;vals[m.id]={};m.inputs.forEach(x=>vals[m.id][x.k]=(save[m.id]&&save[m.id].v&&save[m.id].v[x.k]!==undefined)?save[m.id].v[x.k]:x.def)}
+const required=m=>[...new Set(m.inputs.map(i=>i.st))];
+const unlocked=i=>CONFIG.desbloquear||i===0||((save[MISSIONS[i-1].id]||{}).stars||0)>=1;
+
+// ---------- tiempo activo ----------
+let sessionSec=0,lastAct=Date.now(),sessionLogged=false;
+["pointerdown","keydown","wheel","pointermove"].forEach(ev=>addEventListener(ev,()=>{lastAct=Date.now()},{passive:true}));
+setInterval(()=>{if(!profile||document.hidden||Date.now()-lastAct>120000)return;sessionSec++;save.time.total=(save.time.total||0)+1;save.time[cur]=(save.time[cur]||0)+1;if(sessionSec%10===0)persist()},1000);
+
+// ---------- registro de uso ----------
+const COLS=["fecha","tipo","planta","version","modalidad","equipo","nombre1","codigo1","nombre2","codigo2","grupo","turno","producto","intento","estrellas","puntos","prediccion","valor_real","prediccion_ok","inocuidad_ok","norma_ok","cliente_ok","eficiencia_ok","fallas","costo_kg","tiempo_turno_s","tiempo_activo_total_s","tiempo_sesion_s","variables"];
+function baseRow(){const p=profile||{integrantes:[]};const a=p.integrantes[0]||{},b=p.integrantes[1]||{};
+  return {fecha:new Date().toISOString(),planta:"NectarLab",version:VERSION,modalidad:p.modalidad||"",equipo:profile?teamKey(profile):"",nombre1:a.nombre||"",codigo1:a.codigo||"",nombre2:b.nombre||"",codigo2:b.codigo||"",grupo:p.grupo||"",
+    turno:cur,producto:(M()||{}).product||"",tiempo_turno_s:(save.time&&save.time[cur])||0,tiempo_activo_total_s:(save.time&&save.time.total)||0,tiempo_sesion_s:sessionSec}}
+const saveLog=()=>{if(LOG.length>20000)LOG=LOG.slice(-20000);LS.set("nectarlab-registros",LOG)};
+function logEvent(o){const row={...baseRow(),...o,enviado:0};LOG.push(row);saveLog();flush()}
+let flushing=false;
+async function flush(){if(!SHEET_WEBAPP_URL||flushing)return;flushing=true;
+  for(const row of LOG.filter(r=>!r.enviado)){const data={...row};delete data.enviado;
+    try{await fetch(SHEET_WEBAPP_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(data)});row.enviado=1}catch(e){break}}
+  saveLog();flushing=false}
+function logSessionEnd(){if(!profile||sessionLogged||sessionSec<10)return;sessionLogged=true;persist();
+  const row={...baseRow(),tipo:"sesion"};
+  if(SHEET_WEBAPP_URL&&navigator.sendBeacon){try{navigator.sendBeacon(SHEET_WEBAPP_URL,new Blob([JSON.stringify(row)],{type:"text/plain;charset=utf-8"}));row.enviado=1}catch(e){row.enviado=0}}else row.enviado=0;
+  LOG.push(row);saveLog()}
+addEventListener("pagehide",logSessionEnd);
+// configuración central (precios y desbloqueo) definida por el docente
+async function fetchConfig(){if(!SHEET_WEBAPP_URL)return;try{const r=await fetch(SHEET_WEBAPP_URL+"?tipo=config");const j=await r.json();if(j&&typeof j==="object"&&(j.precios||"desbloquear" in j)){CONFIG={precios:j.precios||{},desbloquear:!!j.desbloquear};LS.set("nectarlab-config",CONFIG);applyConfig();if(typeof refreshWorld==="function"&&profile){refreshWorld();renderHud()}}}catch(e){}}
+
+// ================== 3D ==================
+if(!window.THREE){$("#boot").textContent="No se pudo cargar el motor 3D. Revisa la conexión y recarga la página.";return}
+const canvas=$("#view");
+let renderer;
+try{renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:"high-performance"})}catch(e){$("#boot").textContent="Tu navegador no tiene WebGL activo, necesario para el recorrido 3D.";return}
+const LOWEND=Math.min(screen.width,screen.height)<500&&(navigator.hardwareConcurrency||4)<=4;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,LOWEND?1.25:1.75));
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=0.95;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0xC9D3CE);scene.fog=new THREE.Fog(0xC9D3CE,30,62);
+const camera=new THREE.PerspectiveCamera(70,1,0.05,120);camera.rotation.order="YXZ";
+const ANISO=renderer.capabilities.getMaxAnisotropy();
+
+// ---------- texturas procedurales ----------
+let seed=11;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+function ctex(w,h,draw,rep,srgb){const c=document.createElement("canvas");c.width=w;c.height=h;draw(c.getContext("2d"),w,h);
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;if(rep)t.repeat.set(rep[0],rep[1]);t.anisotropy=ANISO;if(srgb)t.encoding=THREE.sRGBEncoding;return t}
+const TX={
+ brushed:ctex(512,512,(x,W,H)=>{x.fillStyle="#8a8a8a";x.fillRect(0,0,W,H);for(let i=0;i<7000;i++){const v=100+rnd()*70|0;x.fillStyle=`rgba(${v},${v},${v},.45)`;x.fillRect(rnd()*W,rnd()*H,30+rnd()*260,1)}}),
+ floor:ctex(1024,1024,(x,W,H)=>{x.fillStyle="#7b958a";x.fillRect(0,0,W,H);
+   for(let i=0;i<26000;i++){const v=rnd();x.fillStyle=v<.5?"rgba(255,255,255,.07)":"rgba(0,30,20,.09)";x.fillRect(rnd()*W,rnd()*H,1+rnd()*2,1+rnd()*2)}
+   const g=x.createRadialGradient(W*.3,H*.4,10,W*.3,H*.4,W*.7);g.addColorStop(0,"rgba(255,255,255,.05)");g.addColorStop(1,"rgba(0,0,0,.05)");x.fillStyle=g;x.fillRect(0,0,W,H);
+   x.strokeStyle="rgba(30,50,40,.35)";x.lineWidth=2;x.strokeRect(0,0,W,H)},[10.5,5.5],true),
+ floorR:ctex(256,256,(x,W,H)=>{x.fillStyle="#5c5c5c";x.fillRect(0,0,W,H);for(let i=0;i<3000;i++){const v=60+rnd()*90|0;x.fillStyle=`rgb(${v},${v},${v})`;x.fillRect(rnd()*W,rnd()*H,2,2)}},[21,11]),
+ panel:ctex(512,512,(x,W,H)=>{x.fillStyle="#e2e8e4";x.fillRect(0,0,W,H);for(let i=0;i<4;i++){x.fillStyle="rgba(0,0,0,.08)";x.fillRect(i*128,0,2,H);x.fillStyle="rgba(255,255,255,.5)";x.fillRect(i*128+2,0,1,H)}
+   for(let y=0;y<H;y+=16){x.fillStyle="rgba(0,0,0,.025)";x.fillRect(0,y,W,1)}},[1,1],true),
+ chevron:ctex(256,512,(x,W,H)=>{x.fillStyle="#808080";x.fillRect(0,0,W,H);x.lineWidth=7;
+   for(let y=-W;y<H+W;y+=22){x.strokeStyle="#c8c8c8";x.beginPath();x.moveTo(0,y);x.lineTo(W/2,y+W*0.45);x.lineTo(W,y);x.stroke();x.strokeStyle="#4a4a4a";x.beginPath();x.moveTo(0,y+9);x.lineTo(W/2,y+9+W*0.45);x.lineTo(W,y+9);x.stroke()}}),
+ grate:ctex(256,64,(x,W,H)=>{x.fillStyle="#2a302e";x.fillRect(0,0,W,H);x.fillStyle="#9aa3a2";for(let i=0;i<W;i+=10)x.fillRect(i,0,4,H);x.fillRect(0,0,W,5);x.fillRect(0,H-5,W,5)},[40,1],true),
+ chain:ctex(256,64,(x,W,H)=>{x.fillStyle="#2d3432";x.fillRect(0,0,W,H);for(let i=0;i<W;i+=32){x.fillStyle="#46504d";x.fillRect(i+2,4,28,H-8);x.fillStyle="#1d2321";x.fillRect(i,0,3,H)}},[14,1],true),
+ shadow:ctex(128,128,(x,W,H)=>{const g=x.createRadialGradient(W/2,H/2,4,W/2,H/2,W/2);g.addColorStop(0,"rgba(0,0,0,.75)");g.addColorStop(.55,"rgba(0,0,0,.35)");g.addColorStop(1,"rgba(0,0,0,0)");x.fillStyle=g;x.fillRect(0,0,W,H)}),
+ dial:ctex(256,256,(x,W,H)=>{x.fillStyle="#f6f6f2";x.beginPath();x.arc(128,128,124,0,7);x.fill();x.strokeStyle="#222";x.lineWidth=3;
+   for(let i=0;i<=40;i++){const a=Math.PI*0.75+i/40*Math.PI*1.5,l=i%5?10:20;x.beginPath();x.moveTo(128+Math.cos(a)*112,128+Math.sin(a)*112);x.lineTo(128+Math.cos(a)*(112-l),128+Math.sin(a)*(112-l));x.stroke()}
+   x.strokeStyle="#B8382C";x.lineWidth=6;x.beginPath();x.arc(128,128,104,Math.PI*1.95,Math.PI*2.25);x.stroke();
+   x.fillStyle="#222";x.font="700 26px sans-serif";x.textAlign="center";x.fillText("bar",128,190);
+   x.strokeStyle="#111";x.lineWidth=6;x.beginPath();x.moveTo(128,128);x.lineTo(128+Math.cos(-0.9)*95,128+Math.sin(-0.9)*95);x.stroke();x.fillStyle="#111";x.beginPath();x.arc(128,128,10,0,7);x.fill()},null,true),
+ chart:ctex(256,256,(x,W,H)=>{x.fillStyle="#fbfbf6";x.beginPath();x.arc(128,128,126,0,7);x.fill();x.strokeStyle="rgba(40,90,160,.35)";x.lineWidth=1;
+   for(let r=20;r<126;r+=12){x.beginPath();x.arc(128,128,r,0,7);x.stroke()}for(let i=0;i<24;i++){const a=i/24*Math.PI*2;x.beginPath();x.moveTo(128,128);x.lineTo(128+Math.cos(a)*126,128+Math.sin(a)*126);x.stroke()}
+   x.strokeStyle="#c0392b";x.lineWidth=3;x.beginPath();for(let i=0;i<=200;i++){const a=i/200*Math.PI*2,r=92+Math.sin(i*.4)*3+(i>120&&i<130?-18:0);x.lineTo(128+Math.cos(a)*r,128+Math.sin(a)*r)}x.stroke()},null,true),
+ fan:ctex(256,256,(x,W,H)=>{x.fillStyle="#3a4341";x.fillRect(0,0,W,H);x.strokeStyle="#9aa3a2";x.lineWidth=3;for(let r=20;r<124;r+=13){x.beginPath();x.arc(128,128,r,0,7);x.stroke()}for(let i=0;i<8;i++){const a=i/8*Math.PI*2;x.beginPath();x.moveTo(128,128);x.lineTo(128+Math.cos(a)*124,128+Math.sin(a)*124);x.stroke()}},null,true),
+ sack:ctex(256,256,(x,W,H)=>{x.fillStyle="#f1eee6";x.fillRect(0,0,W,H);for(let i=0;i<2500;i++){x.fillStyle="rgba(0,0,0,.04)";x.fillRect(rnd()*W,rnd()*H,3,1)}x.fillStyle="#0E6B66";x.fillRect(0,92,W,70);x.fillStyle="#fff";x.font="800 40px Arial Black,sans-serif";x.textAlign="center";x.fillText("AZÚCAR",128,140);x.fillStyle="#555";x.font="700 22px sans-serif";x.fillText("50 kg",128,200)},null,true),
+ wood:ctex(256,64,(x,W,H)=>{x.fillStyle="#b58a5c";x.fillRect(0,0,W,H);for(let i=0;i<40;i++){x.strokeStyle=`rgba(90,55,25,${.15+rnd()*.2})`;x.lineWidth=1+rnd()*2;x.beginPath();const y=rnd()*H;x.moveTo(0,y);x.bezierCurveTo(W*.3,y+rnd()*8-4,W*.6,y+rnd()*8-4,W,y);x.stroke()}},null,true),
+ carton:ctex(256,256,(x,W,H)=>{x.fillStyle="#c49a64";x.fillRect(0,0,W,H);x.fillStyle="#a77d4a";x.fillRect(0,118,W,20);x.fillStyle="#14302A";x.font="800 30px Arial Black,sans-serif";x.textAlign="center";x.fillText("NÉCTAR",128,80);x.font="700 20px sans-serif";x.fillText("12 × 300 mL",128,190)},null,true),
+ cave:ctex(128,64,(x,W,H)=>{x.fillStyle="#101614";x.fillRect(0,0,W,H);x.fillStyle="#ff4a3a";x.font="700 34px monospace";x.textAlign="center";x.textBaseline="middle";x.fillText("4.0°C",W/2,H/2)},null,true)
+};
+
+// ---------- entorno IBL ----------
+(function(){const pm=new THREE.PMREMGenerator(renderer);let env;
+  if(THREE.RoomEnvironment){env=pm.fromScene(new THREE.RoomEnvironment(),0.035).texture}
+  else{const es=new THREE.Scene();es.add(new THREE.Mesh(new THREE.BoxGeometry(40,12,24),new THREE.MeshBasicMaterial({color:0x6f7d76,side:THREE.BackSide})));
+    for(let i=-3;i<=3;i++){const p=new THREE.Mesh(new THREE.PlaneGeometry(4,1.4),new THREE.MeshBasicMaterial({color:0xffffff}));p.rotation.x=Math.PI/2;p.position.set(i*5.5,5.8,0);es.add(p)}
+    env=pm.fromScene(es,0.04).texture}
+  scene.environment=env;pm.dispose()})();
+
+scene.add(new THREE.HemisphereLight(0xf4fbf8,0x6a7d74,0.35));
+const sun=new THREE.DirectionalLight(0xfff3e2,0.95);sun.position.set(-9,17,11);sun.castShadow=true;
+sun.shadow.mapSize.set(LOWEND?1024:2048,LOWEND?1024:2048);Object.assign(sun.shadow.camera,{left:-22,right:22,top:14,bottom:-14,near:1,far:52});sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.02;sun.shadow.radius=3;scene.add(sun);
+
+const std=o=>new THREE.MeshStandardMaterial(o);
+const mat={
+ steel:std({color:0xdde2e3,metalness:1,roughness:0.62,roughnessMap:TX.brushed,bumpMap:TX.brushed,bumpScale:0.0012}),
+ polish:std({color:0xeef1f2,metalness:1,roughness:0.13}),
+ satin:std({color:0xcfd5d6,metalness:1,roughness:0.36}),
+ clad:std({color:0xc6ccce,metalness:0.85,roughness:0.34}),
+ plate:std({color:0xd6dbdc,metalness:1,roughness:0.3,bumpMap:TX.chevron,bumpScale:0.004}),
+ gasket:std({color:0x1d2422,roughness:0.8}),
+ blue:std({color:0x24508E,metalness:0.3,roughness:0.38}),
+ green:std({color:0x0E6B66,metalness:0.3,roughness:0.4}),
+ red:std({color:0xA9352A,metalness:0.3,roughness:0.42}),
+ dark:std({color:0x26302d,metalness:0.4,roughness:0.5}),
+ black:std({color:0x151a19,metalness:0.2,roughness:0.45}),
+ white:std({color:0xf2f4f3,metalness:0,roughness:0.32}),
+ yellow:std({color:0xEFB300,roughness:0.5}),
+ hdpe:std({color:0x1f5fb0,roughness:0.42}),
+ wood:std({map:TX.wood,roughness:0.8}),
+ carton:std({map:TX.carton,roughness:0.85}),
+ sack:std({map:TX.sack,roughness:0.9}),
+ panel:std({map:TX.panel,roughness:0.6,metalness:0.1}),
+ wall:std({color:0xd7dfda,roughness:0.85}),
+ floor:std({map:TX.floor,roughness:0.55,roughnessMap:TX.floorR,metalness:0.02}),
+ glass:std({color:0xd9f0ee,metalness:0,roughness:0.04,transparent:true,opacity:0.22,depthWrite:false}),
+ water:std({color:0x7fb8d8,roughness:0.1,transparent:true,opacity:0.6}),
+ nectar:std({color:0xF2B705,roughness:0.18,transparent:true,opacity:0.9,emissive:0x3a1d00,emissiveIntensity:0.2}),
+ chain:std({map:TX.chain,roughness:0.6}),
+ grate:std({map:TX.grate,metalness:0.6,roughness:0.5}),
+ led:new THREE.MeshBasicMaterial({color:0xffffff}),
+ lampG:new THREE.MeshBasicMaterial({color:0x3cff8a}),lampR:new THREE.MeshBasicMaterial({color:0xff4a3a}),lampA:new THREE.MeshBasicMaterial({color:0xffb020}),
+ dial:new THREE.MeshBasicMaterial({map:TX.dial,toneMapped:false}),
+ chart:new THREE.MeshBasicMaterial({map:TX.chart,toneMapped:false}),
+ fan:std({map:TX.fan,roughness:0.6,metalness:0.4}),
+ shadow:new THREE.MeshBasicMaterial({map:TX.shadow,transparent:true,depthWrite:false,opacity:0.55})
+};
+const RB=(w,h,d,r=0.02)=>THREE.RoundedBoxGeometry?new THREE.RoundedBoxGeometry(w,h,d,3,Math.min(r,w/2-1e-3,h/2-1e-3,d/2-1e-3)):new THREE.BoxGeometry(w,h,d);
+function mesh(g,m,x=0,y=0,z=0,parent=scene){const o=new THREE.Mesh(g,m);o.position.set(x,y,z);parent.add(o);return o}
+function cyl(r,h,m,x,y,z,p,seg=32){return mesh(new THREE.CylinderGeometry(r,r,h,seg),m,x,y,z,p)}
+function box(w,h,d,m,x,y,z,p,r){return mesh(r?RB(w,h,d,r):new THREE.BoxGeometry(w,h,d),m,x,y,z,p)}
+function lathe(pts,m,x,y,z,p,seg=64){return mesh(new THREE.LatheGeometry(pts.map(a=>new THREE.Vector2(a[0],a[1])),seg),m,x,y,z,p)}
+const UP=new THREE.Vector3(0,1,0);
+function rod(a,b,r,m,p=scene,seg=20){const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b);const L=A.distanceTo(B);if(L<1e-4)return null;const o=mesh(new THREE.CylinderGeometry(r,r,L,seg),m,0,0,0,p);
+  o.position.copy(A).add(B).multiplyScalar(.5);o.quaternion.setFromUnitVectors(UP,B.clone().sub(A).normalize());return o}
+function ringAt(pos,dir,r,tube,m,p){const t=mesh(new THREE.TorusGeometry(r,tube,8,28),m,pos.x,pos.y,pos.z,p);t.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),dir);return t}
+function clampAt(pos,dir,r,p){ringAt(pos,dir,r+0.006,0.011,mat.satin,p)}
+// tubería ortogonal con codos y abrazaderas clamp
+function route(pts,r,m,p=scene,o={}){const V=pts.map(a=>new THREE.Vector3(...a));const R=o.R||Math.max(r*2.6,0.07);let s=V[0].clone();
+  const seg=(a,b)=>{rod(a.toArray(),b.toArray(),r,m,p,o.seg||20);if(o.clamps){const d=b.clone().sub(a).normalize();clampAt(a,d,r,p);clampAt(b,d,r,p)}};
+  for(let i=1;i<V.length;i++){const c=V[i];
+    if(i<V.length-1){const d1=c.clone().sub(V[i-1]).normalize(),d2=V[i+1].clone().sub(c).normalize();
+      if(Math.abs(d1.dot(d2))>0.999){continue}
+      const S=c.clone().addScaledVector(d1,-R),E=c.clone().addScaledVector(d2,R);seg(s,S);
+      const C=c.clone().addScaledVector(d1,-R).addScaledVector(d2,R);const e1=d2.clone().negate(),e2=d1.clone(),e3=new THREE.Vector3().crossVectors(e1,e2);
+      const t=mesh(new THREE.TorusGeometry(R,r,12,14,Math.PI/2),m,C.x,C.y,C.z,p);t.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(e1,e2,e3));s=E}
+    else seg(s,c)}}
+function valveAt(pos,dir,r,handleCol,p){const b=ringAt(pos,dir,r+0.02,0.022,mat.satin,p);const h=box(0.03,0.02,0.24,handleCol,0,0,0,p);h.position.copy(pos).add(new THREE.Vector3(0,r+0.07,0));
+  const q=new THREE.Vector3(dir.z,0,-dir.x);if(q.lengthSq()<1e-6)q.set(1,0,0);h.lookAt(h.position.clone().add(q));h.position.addScaledVector(q.normalize(),0.08);
+  rod(pos.toArray(),[pos.x,pos.y+r+0.07,pos.z],0.012,mat.satin,p)}
+function gauge(p,pos,rotY,s=0.075,tex=mat.dial){const g=new THREE.Group();g.position.set(...pos);g.rotation.y=rotY;p.add(g);
+  lathe([[0,-0.02],[s,-0.02],[s,0.025],[s*0.92,0.03],[0,0.03]],mat.satin,0,0,0,g,32).rotation.x=Math.PI/2;
+  const f=mesh(new THREE.CircleGeometry(s*0.86,32),tex,0,0,0.031,g);const gl=mesh(new THREE.CircleGeometry(s*0.9,32),mat.glass,0,0,0.034,g);
+  rod([0,-s,0],[0,-s-0.08,0],0.012,mat.satin,g);return g}
+function contact(x,z,w,d,op=0.55,p=scene){const m=mesh(new THREE.PlaneGeometry(w,d),mat.shadow.clone(),x,0.012,z,p);m.rotation.x=-Math.PI/2;m.material.opacity=op;m.renderOrder=1;return m}
+function hexNut(pos,axis,p){const n=cyl(0.042,0.05,mat.satin,pos[0],pos[1],pos[2],p,6);n.quaternion.setFromUnitVectors(UP,new THREE.Vector3(...axis));return n}
+
+// Textos sobre canvas
+function textPlane(w,h,px,draw,parent,pos,rotY=0){
+  const c=document.createElement("canvas");c.width=px;c.height=Math.round(px*h/w);const ctx=c.getContext("2d");
+  const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;tex.anisotropy=ANISO;
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:tex,toneMapped:false}));
+  m.position.set(...pos);m.rotation.y=rotY;(parent||scene).add(m);
+  const api={c,ctx,tex,mesh:m,redraw(fn){(fn||draw)(ctx,c.width,c.height);tex.needsUpdate=true}};api.redraw();return api}
+function signDraw(title,sub){return (x,W,H)=>{x.fillStyle="#14302A";x.fillRect(0,0,W,H);x.fillStyle="#E29B00";x.fillRect(0,H-10,W,10);
+  x.fillStyle="#fff";x.font=`800 ${H*0.34}px Unbounded, Arial Black, sans-serif`;x.textAlign="center";x.textBaseline="middle";x.fillText(title,W/2,H*0.4);
+  if(sub){x.fillStyle="#A9C4BB";x.font=`700 ${H*0.17}px Atkinson Hyperlegible, sans-serif`;x.fillText(sub,W/2,H*0.74)}}}
+
+// ================== NAVE ==================
+const fl=mesh(new THREE.PlaneGeometry(42,22),mat.floor,0,0,0);fl.rotation.x=-Math.PI/2;fl.receiveShadow=true;
+for(const z of [-1.8,7.75]){const s=mesh(new THREE.PlaneGeometry(39,0.1),mat.yellow,0,0.004,z);s.rotation.x=-Math.PI/2}
+for(let i=-18;i<=18;i+=3){const s=mesh(new THREE.PlaneGeometry(0.9,0.1),mat.yellow,i,0.004,3);s.rotation.x=-Math.PI/2}
+{const dr=mesh(new THREE.PlaneGeometry(39,0.22),mat.grate,0,0.006,-6.0);dr.rotation.x=-Math.PI/2}
+const wallM=mat.panel.clone();wallM.map=TX.panel.clone();wallM.map.repeat.set(10,1);wallM.map.needsUpdate=true;
+const wallS=mat.panel.clone();wallS.map=TX.panel.clone();wallS.map.repeat.set(5,1);wallS.map.needsUpdate=true;
+box(42,6.6,0.3,wallM,0,3.3,-10.15);box(42,6.6,0.3,wallM,0,3.3,10.15);box(0.3,6.6,20.6,wallS,-20.15,3.3,0);box(0.3,6.6,20.6,wallS,20.15,3.3,0);
+// zócalo sanitario
+box(41.6,0.18,0.06,mat.green,0,0.09,-9.97);box(41.6,0.18,0.06,mat.green,0,0.09,9.97);box(0.06,0.18,20,mat.green,-19.97,0.09,0);box(0.06,0.18,20,mat.green,19.97,0.09,0);
+const ceil=mesh(new THREE.PlaneGeometry(42,22),mat.wall,0,6.6,0);ceil.rotation.x=Math.PI/2;
+// estructura de cubierta, columnas, luminarias y bandeja portacables
+for(let i=-18;i<=18;i+=6){box(0.25,0.35,20.3,mat.dark,i,6.4,0);box(0.3,6.6,0.3,mat.dark,i,3.3,-9.85);box(0.3,6.6,0.3,mat.dark,i,3.3,9.85)}
+for(let i=-3;i<=3;i++)for(const z of [-4.5,3.5]){box(3.3,0.07,0.55,mat.satin,i*5.6,6.05,z);const l=new THREE.Mesh(new THREE.BoxGeometry(3.15,0.02,0.42),mat.led);l.position.set(i*5.6,6.01,z);scene.add(l);
+  rod([i*5.6-1.4,6.05,z],[i*5.6-1.4,6.4,z],0.006,mat.dark);rod([i*5.6+1.4,6.05,z],[i*5.6+1.4,6.4,z],0.006,mat.dark)}
+box(40,0.08,0.5,mat.satin,0,5.25,-6.6);box(40,0.15,0.03,mat.satin,0,5.32,-6.36);box(40,0.15,0.03,mat.satin,0,5.32,-6.84);
+for(const dz of [-0.12,0,0.12])rod([-20,5.33,-6.6+dz],[20,5.33,-6.6+dz],0.025,dz?mat.black:mat.dark);
+// línea de servicios en pared (agua helada, agua caliente, vapor, aire)
+[[4.6,0.06,mat.clad],[4.85,0.045,mat.blue],[5.05,0.035,mat.yellow]].forEach(([y,r,m])=>{rod([-19.8,y,-9.6],[19.8,y,-9.6],r,m);for(let x=-18;x<=18;x+=4)box(0.06,0.25,0.4,mat.dark,x,y+0.1,-9.8)});
+textPlane(12,1.9,1400,(x,W,H)=>{x.fillStyle="#14302A";x.fillRect(0,0,W,H);x.fillStyle="#E29B00";x.fillRect(0,H-12,W,12);x.textAlign="center";x.textBaseline="middle";
+  x.fillStyle="#fff";x.font=`800 ${H*0.3}px Unbounded, Arial Black, sans-serif`;x.fillText("NECTARLAB",W/2,H*0.3);
+  x.fillStyle="#F2B42A";x.font=`700 ${H*0.13}px Unbounded, Arial Black, sans-serif`;x.fillText("PLANTA VIRTUAL DE PROCESOS AGROINDUSTRIALES",W/2,H*0.58);
+  x.fillStyle="#A9C4BB";x.font=`700 ${H*0.105}px Atkinson Hyperlegible, sans-serif`;x.fillText("Programa de Ingeniería Agroindustrial · Universidad Surcolombiana",W/2,H*0.78)},scene,[1,4.5,9.98],Math.PI);
+(function(){const tex=new THREE.TextureLoader().load(USCO_LOGO);tex.encoding=THREE.sRGBEncoding;tex.anisotropy=ANISO;
+  box(2.0,2.05,0.05,mat.white,8.4,4.5,9.99,scene,0.04);
+  const sm=new THREE.Mesh(new THREE.PlaneGeometry(1.7,1.76),new THREE.MeshBasicMaterial({map:tex,transparent:true,toneMapped:false}));sm.position.set(8.4,4.5,9.955);sm.rotation.y=Math.PI;scene.add(sm)})();
+for(const z of [-5,0,5]){const w=mesh(new THREE.PlaneGeometry(3.6,1.6),new THREE.MeshBasicMaterial({color:0xEAF6FF}),19.98,3.6,z);w.rotation.y=-Math.PI/2;
+  const fr=box(0.06,1.7,3.7,mat.satin,19.97,3.6,z);box(0.06,0.04,3.6,mat.satin,19.96,3.6,z)}
+// lavamanos sanitario junto a la entrada
+(function(){box(0.7,0.2,0.45,mat.steel,-19.5,0.95,7.5,scene,0.03);cyl(0.035,0.95,mat.steel,-19.5,0.45,7.5);rod([-19.7,1.05,7.5],[-19.7,1.3,7.5],0.015,mat.polish);rod([-19.7,1.3,7.5],[-19.5,1.3,7.5],0.015,mat.polish)})();
+
+// ================== GRUPOS ==================
+const G={};ORDER.forEach(k=>{G[k]=new THREE.Group();G[k].userData.st=k;scene.add(G[k])});
+function hangSign(k,x,z,w=3.2){const g=G[k];rod([x-w*0.4,6.6,z],[x-w*0.4,4.62,z],0.01,mat.dark,g);rod([x+w*0.4,6.6,z],[x+w*0.4,4.62,z],0.01,mat.dark,g);
+  textPlane(w,0.62,700,signDraw(ST[k].name.toUpperCase()),g,[x,4.35,z])}
+function nameplate(p,pos,rotY,txt){textPlane(0.32,0.12,256,(x,W,H)=>{x.fillStyle="#c9cfd0";x.fillRect(0,0,W,H);x.strokeStyle="#666";x.lineWidth=3;x.strokeRect(2,2,W-4,H-4);x.fillStyle="#222";x.font="700 22px sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText(txt,W/2,H/2)},p,pos,rotY)}
+
+// ---------- CAVA Y RECEPCIÓN ----------
+(function(){const g=G.rec;const pm=mat.panel.clone();pm.map=TX.panel.clone();pm.map.repeat.set(3,1);pm.map.needsUpdate=true;
+  box(0.12,3.4,3.8,pm,-11.9,1.7,-8.0,g);box(8,0.12,3.9,pm,-15.9,3.45,-8.0,g);
+  box(4.1,3.4,0.12,pm,-17.85,1.7,-6.1,g);box(1.9,3.4,0.12,pm,-12.85,1.7,-6.1,g);box(2.0,0.8,0.12,pm,-14.8,3.0,-6.1,g);
+  mesh(new THREE.PlaneGeometry(2,2.6),new THREE.MeshBasicMaterial({color:0x1a2a2c}),-14.8,1.3,-6.2,g);
+  for(let i=0;i<10;i++){const s=box(0.19,2.5,0.006,mat.glass,-15.7+i*0.2,1.33,-6.02,g);s.rotation.y=(i%2?.05:-.05)}
+  box(2.1,0.08,0.18,mat.satin,-14.8,2.62,-6.0,g);
+  box(2.0,2.6,0.1,pm,-16.95,1.3,-5.95,g,0.02);box(0.04,0.5,0.04,mat.satin,-16.1,1.2,-5.88,g);
+  for(const x of [-19.8,-11.84])box(0.08,3.45,0.08,mat.satin,x,1.72,-6.06,g);box(8,0.08,0.08,mat.satin,-15.9,3.43,-6.06,g);
+  textPlane(1.6,0.42,400,(x,W,H)=>{x.fillStyle="#24508E";x.fillRect(0,0,W,H);x.fillStyle="#fff";x.font=`800 ${H*.5}px Unbounded,sans-serif`;x.textAlign="center";x.textBaseline="middle";x.fillText("CAVA 4 °C",W/2,H/2)},g,[-14.8,3.05,-6.03]);
+  box(0.26,0.14,0.05,mat.black,-13.5,1.6,-6.02,g,0.01);mesh(new THREE.PlaneGeometry(0.2,0.09),new THREE.MeshBasicMaterial({map:TX.cave,toneMapped:false}),-13.5,1.6,-5.99,g);
+  // unidad condensadora en cubierta
+  box(1.6,0.8,0.9,mat.white,-17,3.92,-8.2,g,0.04);for(const dx of [-0.38,0.38]){const f=mesh(new THREE.CircleGeometry(0.3,32),mat.fan,-17+dx,3.92,-7.74,g)}
+  route([[-16.2,3.7,-8.2],[-15.2,3.7,-8.2],[-15.2,3.52,-8.2]],0.02,mat.satin,g);
+  // estibas y tambores
+  const drumPts=[[0,0],[0.27,0],[0.29,0.02],[0.29,0.2],[0.305,0.215],[0.305,0.245],[0.29,0.26],[0.29,0.6],[0.305,0.615],[0.305,0.645],[0.29,0.66],[0.29,0.86],[0.27,0.88],[0,0.88]];
+  const pal=(px)=>{for(let i=0;i<5;i++)box(1.2,0.025,0.16,mat.wood,px,0.135,-4-0.48+i*0.24,g);for(const dz of [-0.5,0,0.5])box(1.2,0.1,0.1,mat.wood,px,0.07,-4+dz,g);for(let i=0;i<3;i++)box(1.2,0.02,0.14,mat.wood,px,0.01,-4-0.45+i*0.45,g);
+    for(const dx of [-0.31,0.31])for(const dz of [-0.31,0.31]){lathe(drumPts,mat.hdpe,px+dx,0.15,-4+dz,g,40);cyl(0.27,0.012,mat.white,px+dx,1.035,-4+dz,g);cyl(0.035,0.02,mat.white,px+dx+0.15,1.05,-4+dz,g,12)}
+    contact(px,-4,1.6,1.6,0.6,g);return textPlane(1.1,0.42,420,()=>{},g,[px,0.62,-3.67])};
+  ST.rec.labels=[pal(-16.4),pal(-13.6)];
+  // gato estibador
+  box(0.5,0.08,1.1,mat.yellow,-11.6,0.1,-3.2,g,0.02);rod([-11.6,0.15,-2.6],[-11.6,1.1,-2.4],0.025,mat.dark,g);box(0.35,0.04,0.04,mat.black,-11.6,1.12,-2.38,g);
+  hangSign("rec",-15,-3.0)})();
+
+// ---------- TANQUE DE FORMULACIÓN ----------
+let agitator;
+(function(){const g=G.mix,X=-9,Z=-4.2;
+  const body=[[0,0.78],[0.06,0.785],[0.94,1.12],[0.985,1.16],[1.0,1.2],[1.0,2.86],[0.985,2.94],[0.94,3.0],[0.78,3.08],[0.5,3.14],[0.2,3.17],[0,3.18]];
+  lathe(body,mat.steel,X,0,Z,g,72);
+  lathe([[0.995,1.38],[1.04,1.42],[1.04,2.62],[0.995,2.66]],mat.satin,X,0,Z,g,72);
+  for(const y of [1.4,2.64,2.0])mesh(new THREE.TorusGeometry(1.04,0.008,6,72),mat.polish,X,y,Z,g).rotation.x=Math.PI/2;
+  for(let i=0;i<4;i++){const a=i*Math.PI/2+Math.PI/4,lx=X+Math.cos(a)*0.84,lz=Z+Math.sin(a)*0.84;
+    cyl(0.045,1.18,mat.steel,lx,0.66,lz,g,18);box(0.12,0.22,0.04,mat.steel,lx,1.22,lz,g).rotation.y=-a;
+    cyl(0.07,0.03,mat.satin,lx,0.035,lz,g,18);cyl(0.02,0.08,mat.satin,lx,0.08,lz,g,10)}
+  // salida inferior con válvula
+  route([[X,0.8,Z],[X,0.4,Z],[X,0.4,-2.75],[X,0.8,-2.75]],0.032,mat.polish,g,{clamps:true});
+  valveAt(new THREE.Vector3(X,0.4,Z+0.6),new THREE.Vector3(0,0,1),0.032,mat.blue,g);
+  // mirilla con néctar visible
+  const sg=new THREE.Group();sg.position.set(X,2.35,Z+1.0);g.add(sg);
+  mesh(new THREE.TorusGeometry(0.12,0.025,10,32),mat.polish,0,0,0.02,sg);mesh(new THREE.CircleGeometry(0.12,32),mat.nectar,0,0,0.005,sg);mesh(new THREE.CircleGeometry(0.12,32),mat.glass,0,0,0.03,sg);
+  for(let i=0;i<8;i++){const a=i/8*Math.PI*2;cyl(0.012,0.03,mat.satin,Math.cos(a)*0.15,Math.sin(a)*0.15,0.04,sg,6).rotation.x=Math.PI/2}
+  // manhole, bola CIP, sensor
+  const mh=new THREE.Group();mh.position.set(X+0.42,3.1,Z+0.15);g.add(mh);cyl(0.24,0.16,mat.steel,0,0.05,0,mh);const lid=cyl(0.26,0.03,mat.polish,0,0.14,0,mh);lid.rotation.z=0.05;box(0.18,0.03,0.03,mat.satin,0,0.17,0,mh);
+  route([[X-0.45,3.14,Z-0.2],[X-0.45,3.55,Z-0.2],[X-0.45,3.55,-6.0],[X-0.45,4.6,-6.0]],0.022,mat.satin,g,{clamps:true});
+  cyl(0.02,0.35,mat.satin,X-0.3,3.3,Z+0.45,g,12);cyl(0.045,0.08,mat.white,X-0.3,3.5,Z+0.45,g,16);
+  // accionamiento: puente, reductor, motor con aletas, acople visible
+  box(0.5,0.08,0.5,mat.satin,X,3.2,Z,g,0.01);
+  cyl(0.08,0.12,mat.satin,X,3.3,Z,g,20);
+  agitator=new THREE.Group();agitator.position.set(X,3.42,Z);g.add(agitator);cyl(0.035,0.14,mat.polish,0,0,0,agitator,16);
+  cyl(0.075,0.035,mat.yellow,0,0.06,0,agitator,6);cyl(0.075,0.035,mat.yellow,0,-0.06,0,agitator,6);
+  box(0.24,0.04,0.24,mat.glass,X,3.42,Z,g);
+  box(0.42,0.3,0.36,mat.green,X,3.65,Z,g,0.04);
+  const mo=cyl(0.17,0.44,mat.green,X,4.02,Z,g,36);
+  for(let i=0;i<20;i++){const a=i/20*Math.PI*2;const f=box(0.028,0.36,0.006,mat.green,X+Math.cos(a)*0.18,4.0,Z+Math.sin(a)*0.18,g);f.rotation.y=-a}
+  cyl(0.175,0.09,mat.dark,X,4.29,Z,g,36);mesh(new THREE.CircleGeometry(0.16,32),mat.fan,X,4.336,Z,g).rotation.x=-Math.PI/2;
+  box(0.12,0.1,0.1,mat.dark,X+0.2,3.98,Z,g,0.01);nameplate(g,[X,4.0,Z+0.172],0,"5,5 kW · 1750 rpm");nameplate(g,[X,2.76,Z+1.003],0,"TK-101 · 6 m³");
+  // plataforma con baranda y escalera
+  const PX=X+1.6;box(1.0,0.05,1.4,mat.grate,PX,2.95,Z,g);box(1.0,0.12,0.05,mat.satin,PX,2.9,Z-0.7,g);box(1.0,0.12,0.05,mat.satin,PX,2.9,Z+0.7,g);
+  for(const [px,pz] of [[PX+0.48,Z-0.68],[PX+0.48,Z+0.68],[PX-0.48,Z-0.68],[PX-0.48,Z+0.68]]){rod([px,0,pz],[px,4.0,pz],0.03,mat.satin,g);cyl(0.06,0.02,mat.satin,px,0.01,pz,g,12)}
+  for(const y of [3.45,3.95]){rod([PX+0.48,y,Z-0.68],[PX+0.48,y,Z+0.68],0.022,mat.satin,g);rod([PX-0.48,y,Z-0.68],[PX+0.48,y,Z-0.68],0.022,mat.satin,g);rod([PX-0.48,y,Z+0.68],[PX+0.48,y,Z+0.68],0.022,mat.satin,g)}
+  box(0.04,0.12,1.36,mat.yellow,PX+0.5,3.0,Z,g);
+  for(const dz of [-0.25,0.25])rod([PX+0.6,0,Z+dz],[PX+0.6,3.95,Z+dz],0.022,mat.satin,g);
+  for(let y=0.3;y<3;y+=0.3)rod([PX+0.6,y,Z-0.25],[PX+0.6,y,Z+0.25],0.014,mat.satin,g);
+  // báscula y sacos de azúcar
+  box(1.0,0.1,0.8,mat.satin,X-1.95,0.05,-3.05,g,0.02);box(0.25,0.9,0.08,mat.satin,X-1.95,0.55,-3.42,g,0.02);box(0.3,0.2,0.08,mat.black,X-1.95,1.05,-3.38,g,0.02);
+  mesh(new THREE.PlaneGeometry(0.22,0.08),new THREE.MeshBasicMaterial({color:0x7DE0A6}),X-1.95,1.06,-3.33,g);
+  for(const [dx,dy,dz,ry] of [[-0.12,0.2,0,0.05],[0.14,0.2,0.05,-0.08],[0,0.36,0.02,0.1]]){const s=box(0.42,0.15,0.62,mat.sack,X-1.95+dx,dy,-3.05+dz,g,0.06);s.rotation.y=Math.PI/2+ry}
+  contact(X,Z,3.0,3.0,0.7,g);contact(PX,Z,1.4,1.8,0.4,g);
+  hangSign("mix",X,-2.9)})();
+
+// ---------- INTERCAMBIADORES DE PLACAS ----------
+function PHE(g,x0,z,len,nozCol,n,label,service){
+  const fm=mat.blue;
+  box(0.16,1.8,1.02,fm,x0,0.98,z,g,0.03);box(0.14,1.66,0.94,fm,x0+len,0.98,z,g,0.03);
+  box(0.16,0.06,0.5,fm,x0,0.03,z,g,0.01);
+  box(0.14,2.0,0.14,fm,x0+len+0.55,1.0,z,g,0.02);box(0.3,0.04,0.3,fm,x0+len+0.55,0.02,z,g,0.01);
+  box(len+0.6,0.13,0.07,mat.satin,x0+(len+0.55)/2,1.93,z,g,0.01);box(len+0.6,0.08,0.06,mat.satin,x0+(len+0.55)/2,0.12,z,g,0.01);
+  const step=(len-0.22)/(n-1);
+  for(let i=0;i<n;i++){const xx=x0+0.11+i*step;box(0.012,1.46,0.84,mat.plate,xx,0.98,z,g);box(step-0.012,1.4,0.86,mat.gasket,xx+step/2,0.98,z,g);
+    if(i<n-1)box(step-0.012,0.03,0.88,mat.gasket,xx+step/2,1.72,z,g)}
+  for(const [dy,dz] of [[0.82,0.48],[0.82,-0.48],[0,0.53],[0,-0.53],[-0.78,0.48],[-0.78,-0.48]]){
+    rod([x0-0.14,0.98+dy,z+dz],[x0+len+0.14,0.98+dy,z+dz],0.016,mat.satin,g,10);
+    hexNut([x0-0.1,0.98+dy,z+dz],[1,0,0],g);hexNut([x0+len+0.1,0.98+dy,z+dz],[1,0,0],g)}
+  const ports=[];
+  for(const [dy,dz,prod] of [[0.5,0.26,1],[-0.5,0.26,1],[0.5,-0.26,0],[-0.5,-0.26,0]]){
+    const y=0.98+dy,zz=z+dz;rod([x0-0.08,y,zz],[x0-0.3,y,zz],0.045,mat.polish,g);
+    ringAt(new THREE.Vector3(x0-0.12,y,zz),new THREE.Vector3(1,0,0),0.06,0.02,new THREE.MeshStandardMaterial({color:prod?0xE29B00:nozCol,roughness:.5}),g);
+    clampAt(new THREE.Vector3(x0-0.3,y,zz),new THREE.Vector3(1,0,0),0.045,g);ports.push([x0-0.3,y,zz,prod])}
+  // conexiones de producto al colector y de servicio a la pared
+  const [pi,po]=[ports[1],ports[0]];
+  route([[pi[0],pi[1],pi[2]],[pi[0]-0.35,pi[1],pi[2]],[pi[0]-0.35,pi[1],-2.75],[pi[0]-0.35,0.8,-2.75]],0.03,mat.polish,g,{clamps:true});
+  route([[po[0],po[1],po[2]],[po[0]-0.6,po[1],po[2]],[po[0]-0.6,po[1],-2.75],[po[0]-0.6,0.8,-2.75]],0.03,mat.polish,g,{clamps:true});
+  gauge(g,[po[0]-0.6,po[1]+0.18,-2.75],0,0.06);
+  valveAt(new THREE.Vector3(pi[0]-0.35,pi[1],(pi[2]-2.75)/2),new THREE.Vector3(0,0,1),0.03,mat.blue,g);
+  const [si,so]=[ports[3],ports[2]];const sm=service==="steam"?mat.clad:service==="cold"?mat.blue:mat.satin;const sr=service==="steam"?0.055:0.04;
+  if(service!=="steam"){route([[si[0],si[1],si[2]],[si[0]-0.25,si[1],si[2]],[si[0]-0.25,si[1],-9.0],[si[0]-0.25,4.85,-9.0],[si[0]-0.25,4.85,-9.5]],sr,sm,g);
+    route([[so[0],so[1],so[2]],[so[0]-0.5,so[1],so[2]],[so[0]-0.5,so[1],-8.8],[so[0]-0.5,4.6,-8.8],[so[0]-0.5,4.6,-9.5]],sr,sm,g)}
+  nameplate(g,[x0-0.081,1.6,z],-Math.PI/2,label);
+  contact(x0+len/2,z,len+1.6,1.6,0.6,g);
+}
+PHE(G.reg,-4.6,-3.9,1.9,0xD98A1B,28,"REGENERACIÓN","hot");hangSign("reg",-3.5,-2.9);
+PHE(G.heat,0.5,-3.9,1.5,0xB8382C,22,"CALENTAMIENTO","steam");hangSign("heat",1.5,-2.9);
+// trampa de vapor y tubería de vapor desde la caldera
+route([[0.2,1.48,-4.16],[-0.05,1.48,-4.16],[-0.05,1.48,-4.6],[-0.05,3.1,-4.6],[1.6,3.1,-4.6],[1.6,3.1,-7.6],[1.6,2.25,-7.6]],0.06,mat.clad,G.heat);
+route([[0.2,0.48,-4.16],[-0.2,0.48,-4.16],[-0.2,0.25,-4.16],[-0.2,0.25,-5.2]],0.025,mat.satin,G.heat);box(0.14,0.12,0.1,mat.dark,-0.2,0.25,-4.7,G.heat,0.02);
+
+// ---------- CALDERA ----------
+(function(){const g=G.heat,X=1.6,Z=-7.6;
+  const shell=cyl(0.92,3.0,mat.clad,X,1.3,Z,g,56);shell.rotation.z=Math.PI/2;
+  for(let i=0;i<=6;i++){const t=mesh(new THREE.TorusGeometry(0.925,0.012,6,56),mat.satin,X-1.5+i*0.5,1.3,Z,g);t.rotation.y=Math.PI/2}
+  const fh=lathe([[0,0],[0.92,0],[0.9,0.1],[0.75,0.2],[0.4,0.26],[0,0.27]],mat.red,X+1.5,1.3,Z,g,56);fh.rotation.z=-Math.PI/2;
+  const rh=lathe([[0,0],[0.92,0],[0.9,0.1],[0.75,0.2],[0.4,0.26],[0,0.27]],mat.dark,X-1.5,1.3,Z,g,56);rh.rotation.z=Math.PI/2;
+  // quemador y ventilador
+  box(0.55,0.62,0.62,mat.red,X+1.95,1.3,Z,g,0.06);const bl=cyl(0.2,0.25,mat.dark,X+1.95,1.3,Z+0.42,g,28);bl.rotation.x=Math.PI/2;
+  mesh(new THREE.CircleGeometry(0.19,28),mat.fan,X+1.95,1.3,Z+0.55,g);
+  // tablero de control con pilotos
+  box(0.5,0.7,0.22,mat.white,X+2.0,1.05,Z+0.95,g,0.02);
+  [[-0.12,mat.lampG],[0,mat.lampA],[0.12,mat.lampR]].forEach(([dx,m])=>{const l=mesh(new THREE.SphereGeometry(0.03,12,8),m,X+2.0+dx,1.25,Z+1.07,g)});
+  box(0.3,0.12,0.02,mat.black,X+2.0,1.0,Z+1.065,g);
+  // silletas
+  for(const dx of [-1.0,1.0]){box(0.25,0.55,1.5,mat.dark,X+dx,0.28,Z,g,0.02)}
+  // chimenea con sombrerete
+  route([[X-1.6,1.3,Z],[X-2.0,1.3,Z],[X-2.0,6.9,Z]],0.2,mat.clad,g,{R:0.35});
+  for(let y=2.2;y<6.5;y+=1.2)mesh(new THREE.TorusGeometry(0.205,0.015,6,32),mat.satin,X-2.0,y,Z,g).rotation.x=Math.PI/2;
+  // válvula principal de vapor con volante, válvula de seguridad y manómetro
+  cyl(0.08,0.3,mat.red,X,2.38,Z,g,20);cyl(0.012,0.25,mat.satin,X,2.62,Z,g,8);mesh(new THREE.TorusGeometry(0.13,0.013,8,28),mat.red,X,2.74,Z,g).rotation.x=Math.PI/2;
+  for(let i=0;i<3;i++){const sp=box(0.25,0.012,0.012,mat.red,X,2.74,Z,g);sp.rotation.y=i*Math.PI/3}
+  cyl(0.06,0.32,mat.satin,X+0.7,2.36,Z,g,18);box(0.3,0.02,0.03,mat.satin,X+0.82,2.54,Z,g);
+  gauge(g,[X-0.6,2.42,Z+0.05],0,0.09);
+  // visor de nivel
+  for(const y of [0.95,1.65])box(0.08,0.06,0.08,mat.satin,X+1.2,y,Z+0.98,g,0.01);cyl(0.022,0.64,mat.water,X+1.2,1.3,Z+0.98,g,12);cyl(0.026,0.66,mat.glass,X+1.2,1.3,Z+0.98,g,12);
+  rod([X+1.2,1.65,Z+0.92],[X+1.2,1.65,Z+0.6],0.02,mat.satin,g);rod([X+1.2,0.95,Z+0.92],[X+1.2,0.95,Z+0.6],0.02,mat.satin,g);
+  // tanque de condensados y bomba de alimentación
+  lathe([[0,0],[0.4,0],[0.42,0.05],[0.42,1.0],[0.4,1.05],[0,1.08]],mat.clad,X-3.2,0.25,Z-0.9,g,40);for(const a of [0,2.1,4.2])cyl(0.03,0.25,mat.satin,X-3.2+Math.cos(a)*0.32,0.12,Z-0.9+Math.sin(a)*0.32,g,10);
+  box(0.6,0.12,0.35,mat.dark,X-3.0,0.06,Z+0.4,g,0.01);const pmp=cyl(0.12,0.3,mat.blue,X-3.1,0.28,Z+0.4,g,24);pmp.rotation.z=Math.PI/2;cyl(0.13,0.12,mat.satin,X-2.85,0.28,Z+0.4,g,24).rotation.z=Math.PI/2;
+  route([[X-3.2,0.4,Z-0.5],[X-3.2,0.4,Z+0.1],[X-3.1,0.4,Z+0.1],[X-3.1,0.4,Z+0.25]],0.025,mat.satin,g);
+  route([[X-2.7,0.28,Z+0.4],[X-1.7,0.28,Z+0.4],[X-1.7,0.7,Z+0.4]],0.025,mat.satin,g);
+  textPlane(1.4,0.3,400,(x,W,H)=>{x.fillStyle="#f2f4f3";x.fillRect(0,0,W,H);x.fillStyle="#A9352A";x.font=`800 ${H*.5}px Unbounded,sans-serif`;x.textAlign="center";x.textBaseline="middle";x.fillText("CALDERA 20 BHP",W/2,H/2)},g,[X,1.3,Z+0.93]);
+  contact(X,Z,4.6,2.6,0.6,g);contact(X-3.1,Z-0.4,1.4,1.8,0.45,g)})();
+
+// ---------- TUBO DE SOSTENIMIENTO (se reconstruye con D y L) ----------
+const holdG=new THREE.Group();G.hold.add(holdG);let chartDisc;
+function buildHold(Dm,L){
+  holdG.traverse(o=>{if(o.geometry)o.geometry.dispose()});while(holdG.children.length)holdG.remove(holdG.children[0]);
+  const r=Math.max(0.028,Dm*1.25);const x0=5.4,x1=9.0,run=x1-x0;const runs=Math.max(2,Math.min(9,Math.ceil(L/run)));
+  const z=-3.5,y0=0.62,dy=Math.max(0.2,r*3.4),top=y0+(runs-1)*dy;
+  // bastidor
+  for(const x of [x0-0.35,x1+0.35])for(const dz of [-0.22,0.22]){box(0.06,top+0.5,0.06,mat.satin,x,(top+0.5)/2,z+dz,holdG,0.008);cyl(0.06,0.02,mat.satin,x,0.01,z+dz,holdG,10)}
+  for(let i=0;i<runs;i++){const y=y0+i*dy;for(const x of [x0-0.35,x1+0.35,(x0+x1)/2]){box(0.05,0.03,0.5,mat.satin,x,y-r-0.02,z,holdG,0.006)}}
+  box(0.05,top+0.4,0.05,mat.satin,(x0+x1)/2,(top+0.4)/2,z-0.22,holdG,0.006);
+  const pts=[[x0-0.6,y0,z]];for(let i=0;i<runs;i++){const y=y0+i*dy;const a=i%2?x1:x0,b=i%2?x0:x1;pts.push([b,y,z]);if(i<runs-1)pts.push([b,y+dy,z])}
+  // serpentín: tramos rectos + curvas 180° con abrazaderas clamp
+  for(let i=0;i<runs;i++){const y=y0+i*dy;rod([x0,y,z],[x1,y,z],r,mat.polish,holdG,24);clampAt(new THREE.Vector3(x0,y,z),new THREE.Vector3(1,0,0),r,holdG);clampAt(new THREE.Vector3(x1,y,z),new THREE.Vector3(1,0,0),r,holdG);
+    clampAt(new THREE.Vector3((x0+x1)/2,y,z),new THREE.Vector3(1,0,0),r,holdG);
+    if(i<runs-1){const xe=i%2?x0:x1;const t=mesh(new THREE.TorusGeometry(dy/2,r,12,18,Math.PI),mat.polish,xe,y+dy/2,z,holdG);t.rotation.z=i%2?Math.PI/2:-Math.PI/2}}
+  route([[x0,y0,z],[x0-0.6,y0,z],[x0-0.6,y0,-2.75],[x0-0.6,0.8,-2.75]],r,mat.polish,holdG,{clamps:true});
+  const xe=(runs-1)%2?x0:x1,side=xe===x1?1:-1;
+  route([[xe,top,z],[xe+side*0.55,top,z],[xe+side*0.55,top,-2.75],[xe+side*0.55,0.8,-2.75]],r,mat.polish,holdG,{clamps:true});
+  // sensor RTD, registrador de carta circular y válvula de desviación
+  cyl(0.012,0.2,mat.satin,xe+side*0.3,top+0.12,z,holdG,8);cyl(0.035,0.07,mat.white,xe+side*0.3,top+0.24,z,holdG,14);
+  const vb=new THREE.Vector3(xe+side*0.55,top,-3.1);mesh(new THREE.SphereGeometry(r*1.9,18,12),mat.polish,vb.x,vb.y,vb.z,holdG);
+  cyl(0.07,0.3,mat.white,vb.x,vb.y+0.24,vb.z,holdG,22);cyl(0.075,0.04,mat.satin,vb.x,vb.y+0.4,vb.z,holdG,22);cyl(0.03,0.05,mat.lampG,vb.x,vb.y+0.44,vb.z,holdG,10);
+  route([[vb.x,vb.y,vb.z],[vb.x,vb.y-0.35,vb.z],[vb.x+side*0.4,vb.y-0.35,vb.z]],r*0.9,mat.polish,holdG,{clamps:true});
+  const rx=x1+0.9,ry=1.6;box(0.55,0.65,0.22,mat.white,rx,ry,-2.95,holdG,0.03);box(0.06,ry-0.3,0.06,mat.satin,rx,(ry-0.3)/2,-2.95,holdG);
+  chartDisc=mesh(new THREE.CircleGeometry(0.22,40),mat.chart,rx,ry+0.02,-2.835,holdG);mesh(new THREE.PlaneGeometry(0.5,0.58),mat.glass,rx,ry,-2.83,holdG);
+  textPlane(0.4,0.06,256,(x,W,H)=>{x.fillStyle="#fff";x.fillRect(0,0,W,H);x.fillStyle="#14302A";x.font="700 26px sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText("REGISTRADOR T",W/2,H/2)},holdG,[rx,ry-0.26,-2.834]);
+  holdG.add(contact((x0+x1)/2,z,run+1.6,1.3,0.5,holdG));
+  holdG.traverse(o=>{if(o.isMesh&&o.material!==mat.glass){o.castShadow=true;o.receiveShadow=true}});
+  ST.hold.runs=runs;
+}
+hangSign("hold",7.2,-2.9);
+
+// ---------- ENFRIAMIENTO Y ENVASADO ----------
+const bottles=[];let carousel;const chainMat=mat.chain;
+(function(){const g=G.pack;PHE(g,11,-3.9,1.1,0x2A5DA6,18,"ENFRIAMIENTO","cold");
+  // transportador
+  const cz=-3.2,cy=0.95;box(6.2,0.03,0.24,chainMat,16.3,cy,cz,g);
+  for(const dz of [-0.16,0.16]){box(6.2,0.12,0.03,mat.satin,16.3,cy-0.03,cz+dz,g,0.01);box(6.2,0.03,0.015,mat.polish,16.3,cy+0.14,cz+dz*0.7,g)}
+  for(const x of [13.6,15.4,17.2,19.0])for(const dz of [-0.16,0.16]){cyl(0.025,cy-0.05,mat.satin,x,(cy-0.05)/2,cz+dz,g,12);cyl(0.045,0.02,mat.black,x,0.01,cz+dz,g,12)}
+  // llenadora monobloque
+  const FX=15.6,FZ=-3.2;box(1.3,0.86,1.3,mat.steel,FX,0.43,FZ-0.15,g,0.04);
+  box(0.4,0.03,1.2,mat.black,FX,0.87,FZ-0.15,g);
+  cyl(0.09,1.0,mat.polish,FX,1.4,FZ,g,20);
+  carousel=new THREE.Group();carousel.position.set(FX,1.55,FZ);g.add(carousel);
+  lathe([[0,0.45],[0.5,0.45],[0.55,0.5],[0.55,0.82],[0.5,0.86],[0.25,0.92],[0,0.94]],mat.polish,0,0,0,carousel,48);
+  cyl(0.58,0.04,mat.satin,0,0.4,0,carousel,48);
+  for(let i=0;i<10;i++){const a=i/10*Math.PI*2,vx=Math.cos(a)*0.48,vz=Math.sin(a)*0.48;cyl(0.035,0.24,mat.satin,vx,0.25,vz,carousel,14);cyl(0.012,0.14,mat.polish,vx,0.06,vz,carousel,8);cyl(0.03,0.06,mat.blue,vx,0.4,vz,carousel,12)}
+  // guardas
+  const gx0=FX-0.85,gx1=FX+0.85,gz0=FZ-0.8,gz1=FZ+0.55;
+  for(const [x,z] of [[gx0,gz0],[gx1,gz0],[gx0,gz1],[gx1,gz1]])box(0.04,1.7,0.04,mat.satin,x,1.72,z,g,0.005);
+  for(const y of [0.88,2.56]){box(gx1-gx0,0.04,0.04,mat.satin,FX,y,gz1,g);box(gx1-gx0,0.04,0.04,mat.satin,FX,y,gz0,g);box(0.04,0.04,gz1-gz0,mat.satin,gx0,y,(gz0+gz1)/2,g);box(0.04,0.04,gz1-gz0,mat.satin,gx1,y,(gz0+gz1)/2,g)}
+  box(gx1-gx0,1.64,0.008,mat.glass,FX,1.72,gz1,g);box(0.008,1.64,gz1-gz0,mat.glass,gx0,1.72,(gz0+gz1)/2,g);box(0.008,1.64,gz1-gz0,mat.glass,gx1,1.72,(gz0+gz1)/2,g);
+  box(gx1-gx0,0.04,gz1-gz0,mat.satin,FX,2.6,(gz0+gz1)/2,g);
+  // baliza de estado
+  cyl(0.04,0.06,mat.lampG,gx1-0.1,2.68,gz0+0.1,g,14);cyl(0.04,0.06,mat.lampA,gx1-0.1,2.74,gz0+0.1,g,14);cyl(0.04,0.06,mat.lampR,gx1-0.1,2.8,gz0+0.1,g,14);
+  // brazo HMI de la llenadora
+  rod([gx1,2.0,gz1],[gx1+0.35,2.0,gz1+0.25],0.025,mat.satin,g);box(0.36,0.28,0.06,mat.dark,gx1+0.38,1.9,gz1+0.27,g,0.02);
+  // botellas PET
+  const btl=[[0,0],[0.055,0],[0.06,0.01],[0.062,0.12],[0.058,0.16],[0.035,0.2],[0.02,0.23],[0.02,0.25],[0,0.25]];
+  const fill=[[0,0.008],[0.055,0.008],[0.057,0.12],[0.052,0.15],[0,0.15]];
+  for(let i=0;i<12;i++){const b=new THREE.Group();g.add(b);lathe(fill,mat.nectar,0,0,0,b,20);lathe(btl,mat.glass,0,0,0,b,20);cyl(0.024,0.025,mat.white,0,0.262,0,b,14);
+    b.position.set(13.4+i*0.5,cy+0.016,cz);bottles.push(b)}
+  // cajas de producto terminado
+  for(let i=0;i<3;i++)for(let j=0;j<2;j++)box(0.5,0.3,0.36,mat.carton,19.2-j*0.55,0.16+i*0.31,-4.6,g,0.01);
+  contact(FX,FZ-0.1,2.4,2.2,0.6,g);contact(16.3,cz,6.6,0.9,0.4,g);
+  hangSign("pack",14.6,-2.9,3.6)})();
+
+// ---------- LABORATORIO DE CALIDAD ----------
+let qaScreen;
+(function(){const g=G.qa,BZ=9.05;
+  box(8,0.82,1.15,mat.white,10,0.42,BZ,g,0.02);box(8.1,0.04,1.25,mat.black,10,0.86,BZ,g,0.005);
+  for(let i=0;i<8;i++){const x=6.5+i;box(0.95,0.66,0.02,mat.white,x,0.43,BZ-0.585,g,0.01);box(0.25,0.025,0.025,mat.satin,x,0.68,BZ-0.61,g,0.005)}
+  box(8,0.03,0.35,mat.white,10,1.85,9.75,g);for(const x of [6.2,13.8])box(0.03,0.3,0.3,mat.satin,x,1.72,9.75,g);
+  for(let i=0;i<12;i++)cyl(0.04,0.15,i%3?mat.glass:mat.hdpe,6.6+i*0.25,1.95,9.75,g,12);
+  // refractómetro digital
+  box(0.3,0.1,0.22,mat.white,7.6,0.93,8.85,g,0.03);mesh(new THREE.PlaneGeometry(0.12,0.05),new THREE.MeshBasicMaterial({color:0x0b2b26}),7.65,0.985,8.82,g).rotation.x=-1.2;cyl(0.035,0.02,mat.polish,7.52,0.99,8.9,g,20);
+  // pHmetro con electrodo
+  box(0.24,0.08,0.2,mat.white,8.5,0.92,8.9,g,0.03);rod([8.65,0.9,9.05],[8.65,1.3,9.05],0.01,mat.satin,g);rod([8.65,1.28,9.05],[8.65,1.28,8.85],0.008,mat.satin,g);cyl(0.012,0.22,mat.glass,8.65,1.14,8.85,g,10);
+  // balanza analítica
+  box(0.3,0.08,0.38,mat.white,9.2,0.92,8.95,g,0.02);box(0.24,0.24,0.24,mat.glass,9.2,1.08,9.0,g);
+  // monitor
+  box(0.9,0.55,0.04,mat.black,10.6,1.25,9.4,g,0.015);mesh(new THREE.PlaneGeometry(0.84,0.48),new THREE.MeshBasicMaterial({color:0x123a34}),10.6,1.25,9.378,g).rotation.y=Math.PI;box(0.06,0.25,0.06,mat.satin,10.6,0.98,9.42,g);box(0.25,0.02,0.18,mat.satin,10.6,0.87,9.42,g);
+  // vidriería: beakers, Erlenmeyer, bureta
+  const beaker=[[0,0],[0.05,0],[0.052,0.12],[0.058,0.125]];const erl=[[0,0],[0.075,0],[0.078,0.01],[0.025,0.13],[0.022,0.18],[0.025,0.185]];
+  for(const [x,h] of [[11.6,1],[11.85,0.7]]){lathe(beaker,mat.glass,x,0.88,8.9,g,24).scale.y=h;lathe([[0,0.002],[0.048,0.002],[0.049,0.07*h],[0,0.07*h]],mat.nectar,x,0.88,8.9,g,20)}
+  lathe(erl,mat.glass,12.3,0.88,8.9,g,24);lathe([[0,0.002],[0.07,0.002],[0.06,0.03],[0,0.03]],mat.nectar,12.3,0.88,8.9,g,20);
+  rod([12.9,0.88,9.2],[12.9,1.9,9.2],0.012,mat.satin,g);box(0.25,0.02,0.18,mat.dark,12.9,0.89,9.15,g);rod([12.9,1.6,9.2],[12.9,1.6,8.95],0.008,mat.satin,g);cyl(0.012,0.6,mat.glass,12.9,1.45,8.95,g,10);
+  // banco y extintor
+  cyl(0.2,0.04,mat.black,9.9,0.62,8.0,g,24);cyl(0.025,0.6,mat.satin,9.9,0.32,8.0,g,10);cyl(0.24,0.02,mat.satin,9.9,0.02,8.0,g,5);
+  cyl(0.08,0.5,mat.red,14.6,0.6,9.8,g,20);
+  qaScreen=textPlane(3.6,1.8,900,()=>{},g,[10,3.0,9.98],Math.PI);box(3.75,1.95,0.06,mat.black,10,3.0,10.0,g,0.02);
+  contact(10,BZ,8.6,1.8,0.5,g);
+  hangSign("qa",10,7.9)})();
+
+// ---------- COLECTOR DE PRODUCTO, SOPORTES Y PARTÍCULAS ----------
+rod([-14,0.8,-2.75],[15.3,0.8,-2.75],0.034,mat.polish,scene,24);
+for(let x=-13;x<=15;x+=2){const s=new THREE.Vector3(x,0.8,-2.75);clampAt(s,new THREE.Vector3(1,0,0),0.034);
+  box(0.06,0.74,0.06,mat.satin,x,0.37,-2.75,scene,0.008);box(0.2,0.015,0.2,mat.satin,x,0.008,-2.75);mesh(new THREE.TorusGeometry(0.045,0.008,6,16,Math.PI),mat.satin,x,0.8,-2.75).rotation.set(0,Math.PI/2,Math.PI)}
+route([[-14,0.8,-2.75],[-14,0.8,-3.3],[-14,0.25,-3.3]],0.03,mat.polish,G.rec,{clamps:true});
+route([[15.3,0.8,-2.75],[15.3,1.95,-2.75],[15.6,1.95,-2.75],[15.6,1.95,-3.0]],0.03,mat.polish,G.pack,{clamps:true});
+route([[9.6,2.95,-4.4],[-2.6,2.95,-4.4],[-2.6,1.48,-4.4]],0.03,mat.clad);
+const P=[[-14,0.25,-3.3],[-14,0.8,-2.9],[-9.3,0.8,-2.75],[-9,0.4,-3.6],[-8.7,0.8,-2.75],[-5.3,0.8,-2.75],[-4.9,1.48,-3.64],[-4.6,0.8,-2.75],
+  [0.0,0.8,-2.75],[0.2,1.48,-3.64],[0.5,0.8,-2.75],[4.8,0.8,-2.75],[5.4,0.7,-3.5],[9.0,1.6,-3.5],[9.5,0.8,-2.75],[10.4,0.8,-2.75],[10.7,1.48,-3.64],[11.0,0.8,-2.75],[15.3,1.4,-2.75],[15.6,1.95,-3.0]];
+const flowCurve=new THREE.CatmullRomCurve3(P.map(p=>new THREE.Vector3(...p)),false,"centripetal");
+const parts=[];const partGeo=new THREE.SphereGeometry(0.055,10,8);
+for(let i=0;i<46;i++){const m=new THREE.Mesh(partGeo,mat.nectar);m.visible=false;scene.add(m);parts.push(m)}
+const steam=[];for(let i=0;i<12;i++){const m=new THREE.Mesh(new THREE.SphereGeometry(0.22,10,8),new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:0,roughness:1,depthWrite:false}));scene.add(m);steam.push({m,t:i/12})}
+
+// Pantallas HMI por equipo
+const HMI={};
+function hmiPost(k,x,z){const g=G[k];box(0.1,1.2,0.1,mat.satin,x,0.6,z,g,0.01);box(0.3,0.02,0.3,mat.satin,x,0.01,z,g);
+  const enc=box(0.66,0.5,0.14,mat.steel,x,1.42,z,g,0.03);enc.rotation.x=-0.18;
+  HMI[k]=textPlane(0.56,0.38,512,()=>{},g,[x,1.43,z+0.075]);HMI[k].mesh.rotation.x=-0.18}
+hmiPost("rec",-12.4,-2.3);hmiPost("mix",-7.0,-2.3);hmiPost("reg",-2.0,-2.3);hmiPost("heat",2.9,-2.3);hmiPost("hold",4.4,-2.3);hmiPost("pack",12.6,-2.3);
+
+// sombras: solo piezas medianas y grandes proyectan
+scene.traverse(o=>{if(!o.isMesh)return;if(o.material===mat.shadow||o.material.map===TX.shadow||o.material===mat.glass||o.material.isMeshBasicMaterial){o.castShadow=false;o.receiveShadow=false;return}
+  o.receiveShadow=true;if(!o.geometry.boundingSphere)o.geometry.computeBoundingSphere();o.castShadow=o.geometry.boundingSphere.radius*Math.max(o.scale.x,o.scale.y,o.scale.z)>0.12});
+fl.receiveShadow=true;
+
+// Marcadores de objetivo
+const markers={};
+ORDER.forEach(k=>{const s=ST[k];const g=new THREE.Group();
+  const gem=new THREE.Mesh(new THREE.OctahedronGeometry(0.2),new THREE.MeshBasicMaterial({color:0xE29B00}));gem.position.y=s.qa?2.3:3.85;g.add(gem);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(0.75,0.9,40),new THREE.MeshBasicMaterial({color:0xE29B00,transparent:true,opacity:.8,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.set(0,0.02,s.qa?0:1.0);g.add(ring);
+  g.position.set(s.x,0,s.qa?7.4:-2.9);g.visible=false;scene.add(g);markers[k]={g,gem,ring}});
+
+// Vista de inspección
+const INSPECT={rec:{c:[-15,1.3,-5.2],r:6.5},mix:{c:[-8.6,2.0,-4.2],r:4.4},reg:{c:[-3.6,1.0,-3.9],r:3.0},heat:{c:[1.4,1.4,-5.8],r:5.2},hold:{c:[7.4,1.3,-3.4],r:4.2},pack:{c:[15.2,1.3,-3.4],r:4.0},qa:{c:[10,1.1,9.0],r:2.8,a0:Math.PI}};
+
+// ================== CÁMARA Y CONTROLES ==================
+const player={x:-17,z:3.5,yaw:-Math.PI/2,pitch:-0.05};const EYE=1.65;
+const viewOf=k=>{const s=ST[k];return s.qa?{p:[s.x,EYE,5.4],l:[s.x,1.6,9.5]}:{p:[s.x,EYE,1.6],l:[s.x,1.6,-4.2]}};
+let tween=null;
+function goTo(k){const v=viewOf(k);const dx=v.l[0]-v.p[0],dy=v.l[1]-v.p[1],dz=v.l[2]-v.p[2];
+  const yaw=Math.atan2(-dx,-dz),pitch=Math.atan2(dy,Math.hypot(dx,dz));
+  let dyaw=yaw-player.yaw;dyaw=Math.atan2(Math.sin(dyaw),Math.cos(dyaw));
+  tween={t:0,dur:0.9,from:{...player},to:{x:v.p[0],z:v.p[2],yaw:player.yaw+dyaw,pitch},after:k}}
+function collide(){player.x=Math.max(-19.4,Math.min(19.4,player.x));player.z=Math.max(-1.75,Math.min(9.3,player.z));
+  if(player.x>5.6&&player.x<14.4&&player.z>7.9)player.z=7.9}
+const keys={};const isTyping=e=>/INPUT|SELECT|TEXTAREA/.test(e.target.tagName);
+addEventListener("keydown",e=>{if(isTyping(e))return;keys[e.code]=true;if(orbit)return;
+  if(e.code==="KeyE"&&near&&!uiOpen())openStation(near);if(e.code==="Escape"){if(orbit)exitInspect();else closeAll()}});
+addEventListener("keyup",e=>{keys[e.code]=false});
+let drag=null;let orbit=null;
+function inspect(k){closeAll();tween=null;const I=INSPECT[k];orbit={k,c:new THREE.Vector3(...I.c),r:I.r,a0:I.a0||0,a:I.a0||0,e:0.28,idle:0,t:0};
+  $("#inspName").textContent=ST[k].name;$("#insp").hidden=false;$("#operate").hidden=true;$(".reticle").hidden=true;$("#help").hidden=true;$("#joy").hidden=true}
+function exitInspect(){if(!orbit)return;const k=orbit.k;orbit=null;$("#insp").hidden=true;$(".reticle").hidden=false;$("#help").hidden=false;$("#joy").hidden=false;const v=viewOf(k);player.x=v.p[0];player.z=v.p[2];goTo(k);tween.dur=0.01}
+$("#inspExit").onclick=exitInspect;
+canvas.addEventListener("pointerdown",e=>{if(uiOpen())return;drag={id:e.pointerId,x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,t:performance.now()};canvas.setPointerCapture(e.pointerId)});
+canvas.addEventListener("pointermove",e=>{if(!drag||drag.id!==e.pointerId)return;const k=e.pointerType==="touch"?0.006:0.0042;
+  if(orbit){orbit.a-=(e.clientX-drag.x)*k*1.3;orbit.e=Math.max(-0.05,Math.min(1.0,orbit.e+(e.clientY-drag.y)*k));orbit.idle=0;drag.x=e.clientX;drag.y=e.clientY;return}
+  player.yaw-=(e.clientX-drag.x)*k;player.pitch=Math.max(-1.2,Math.min(1.2,player.pitch-(e.clientY-drag.y)*k));drag.x=e.clientX;drag.y=e.clientY});
+canvas.addEventListener("pointerup",e=>{if(!drag)return;const moved=Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy);
+  if(moved<6&&performance.now()-drag.t<400&&!orbit)pick(e.clientX,e.clientY);drag=null});
+canvas.addEventListener("pointercancel",()=>drag=null);
+const ray=new THREE.Raycaster();
+function pick(cx,cy){const r=canvas.getBoundingClientRect();ray.setFromCamera({x:(cx-r.left)/r.width*2-1,y:-(cy-r.top)/r.height*2+1},camera);
+  const hit=ray.intersectObjects(ORDER.map(k=>G[k]),true)[0];if(!hit||hit.distance>9)return;let o=hit.object;while(o&&!o.userData.st)o=o.parent;
+  if(o){const k=o.userData.st;const v=viewOf(k);if(Math.hypot(player.x-v.p[0],player.z-v.p[2])>1.2){goTo(k);tween.open=true}else openStation(k)}}
+// joystick
+const joy={x:0,y:0,id:null};const jEl=$("#joy"),knob=$("#knob");
+jEl.addEventListener("pointerdown",e=>{joy.id=e.pointerId;jEl.setPointerCapture(e.pointerId);jmove(e)});
+jEl.addEventListener("pointermove",e=>{if(e.pointerId===joy.id)jmove(e)});
+const jend=()=>{joy.id=null;joy.x=joy.y=0;knob.style.transform=""};jEl.addEventListener("pointerup",jend);jEl.addEventListener("pointercancel",jend);
+function jmove(e){const r=jEl.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);const R=r.width/2-14,L=Math.hypot(dx,dy);if(L>R){dx*=R/L;dy*=R/L}
+  joy.x=dx/R;joy.y=dy/R;knob.style.transform=`translate(${dx}px,${dy}px)`}
+
+let near=null;
+function nearest(){let best=null,bd=3.4;ORDER.forEach(k=>{const v=viewOf(k);const d=Math.hypot(player.x-v.p[0],player.z-v.p[2]+(ST[k].qa?0:0.4));if(d<bd){bd=d;best=k}});return best}
+
+// ================== UI ==================
+const sheet=$("#sheet"),modal=$("#modal"),card=$("#card"),regEl=$("#reg"),docEl=$("#doc");
+const uiOpen=()=>!sheet.hidden||!modal.hidden||!regEl.hidden||!docEl.hidden;
+function closeAll(){sheet.hidden=true;modal.hidden=true}
+let tt;function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("show"),2800)}
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const PM=Object.fromEntries(PRICE_META.map(p=>[p[0],p]));
+const priceTxt=k=>`${cop(PR[k])}${PM[k][2]==="$/h"?"/h":"/kg"}`;
+const firstName=n=>String(n||"").trim().split(/\s+/)[0]||"";
+$("#bMission").onclick=()=>showTurnos();$("#bEq").onclick=()=>showEquipos();$("#bMan").onclick=()=>showManual();$("#bTeam").onclick=()=>showTeam();
+modal.addEventListener("pointerdown",e=>{if(e.target===modal)modal.hidden=true});
+
+function renderHud(){
+  const m=M(),i=MISSIONS.indexOf(m),s=save[m.id]||{};
+  $("#mTitle").textContent=`Turno ${i+1} · ${m.product}`;
+  $("#mSub").innerHTML=`${esc(m.sub)} · ${esc(m.client)} · <span class="stars">${starStr(s.stars||0)}</span>`;
+  let pts=0,st=0;MISSIONS.forEach(x=>{const v=save[x.id];if(v){pts+=v.pts||0;st+=v.stars||0}});
+  $("#hPts").textContent=pts.toLocaleString("es-CO");$("#hSt").textContent=st+"/18";
+  let rk="Practicante";[[4,"Operario de línea"],[8,"Analista de calidad"],[13,"Supervisor de planta"],[17,"Jefe de producción"]].forEach(([n,l])=>{if(st>=n)rk=l});$("#hRank").textContent=rk;
+  $("#bTeam").textContent=profile?profile.integrantes.map(x=>firstName(x.nombre)).join(" y "):"Equipo";
+  renderObjective();
+}
+function renderObjective(){
+  const m=M();const req=required(m).filter(k=>!visited.has(k));
+  const ob=$("#obj");
+  if(req.length){const k=req.sort((a,b)=>ORDER.indexOf(a)-ORDER.indexOf(b))[0];ob.innerHTML=`<span class="dot"></span><span>Ve a <b>${ST[k].name}</b> y ajusta el equipo</span><button class="ghost" style="padding:3px 10px" data-go="${k}">Ir</button>`}
+  else ob.innerHTML=`<span class="dot"></span><span>Todo ajustado. Ve al <b>Laboratorio de calidad</b> y libera el lote</span><button class="ghost" style="padding:3px 10px" data-go="qa">Ir</button>`;
+  ob.querySelector("[data-go]").onclick=e=>{goTo(e.currentTarget.dataset.go);tween.open=true};
+  ORDER.forEach(k=>{const isReq=required(m).includes(k)||k==="qa";markers[k].g.visible=isReq;
+    const done=k==="qa"?false:visited.has(k);markers[k].gem.material.color.set(done?0x23824F:0xE29B00);markers[k].ring.material.color.set(done?0x23824F:0xE29B00)});
+}
+const optsOf=inp=>typeof inp.opts==="function"?inp.opts():inp.opts;
+function ctrlHTML(m,inp){const id=`${m.id}-${inp.k}`,v=vals[m.id][inp.k];
+  if(inp.type==="sel")return `<div class="ctrl sel"><label for="${id}">${inp.l}</label><div class="field"><select id="${id}" data-k="${inp.k}">${optsOf(inp).map(([k,l])=>`<option value="${k}"${k===v?" selected":""}>${l}</option>`).join("")}</select></div></div>`;
+  return `<div class="ctrl"><label for="${id}">${inp.l}</label><div class="field"><input id="${id}" data-k="${inp.k}" type="number" inputmode="decimal" min="${inp.min}" max="${inp.max}" step="${inp.step}" value="${v}"><span>${inp.u}</span></div>
+  <input type="range" id="${id}-r" data-k="${inp.k}" aria-label="${inp.l}" min="${inp.min}" max="${inp.max}" step="${inp.step}" value="${v}"></div>`}
+function pricesHTML(m,keys){keys=keys||m.priceKeys||[];if(!keys.length)return "";
+  return `<div class="ptable"><div class="eyebrow">Precios unitarios de este turno</div><dl>${keys.map(k=>`<dt>${esc(PM[k][1])}</dt><dd>${priceTxt(k)}</dd>`).join("")}</dl></div>`}
+function pulpCertHTML(m){if(!m.pulpLots)return "";
+  const rows=m.pulpLots.map(([lbl,f,bx,ta])=>{const F=FR[f];const okB=bx>=F.tabBx,okA=ta>=F.tabTA;
+    return `<tr><td>${esc(lbl)}</td><td>${fmt(bx,1)}</td><td>${fmt(F.tabBx,1)}</td><td>${fmt(ta,2)}</td><td>${fmt(F.tabTA,2)}</td><td class="${okB&&okA?"okc":"koc"}">${okB&&okA?"Conforme":"No conforme"}</td></tr>`}).join("");
+  return `<div class="cert"><div class="eyebrow">Certificado de la pulpa frente a la Tabla 1 (requisitos de la pulpa)</div>
+   <div class="tbl"><table><thead><tr><th>Lote</th><th>°Bx</th><th>mín.</th><th>Acidez %</th><th>mín.</th><th>Tabla 1</th></tr></thead><tbody>${rows}</tbody></table></div>
+   <p class="note">La Tabla 1 aplica a la pulpa como producto. Una pulpa no conforme puede usarse como materia prima, pero el néctar debe cumplir la Tabla 8 (pulpa mínima y sólidos aportados por la fruta) y la Tabla 9.</p></div>`}
+
+function openStation(k){
+  const m=M();const s=ST[k];
+  if(k==="qa")return openQA();
+  visited.add(k);renderObjective();
+  const ins=m.inputs.filter(i=>i.st===k);
+  let body=`<p class="info">${s.info}</p>`;
+  if(k==="rec")body+=pulpCertHTML(m);
+  if(k==="mix")body+=`<div class="chips">${m.lot.map(([a,b])=>`<span class="chip">${a}: <b>${b}</b></span>`).join("")}</div>`;
+  if(ins.length)body+=ins.map(x=>ctrlHTML(m,x)).join("");
+  else body+=`<p class="note">${(m.fixed&&m.fixed[k])||"En este turno no se ajusta este equipo. Obsérvalo y sigue la línea."}</p>`;
+  if(m.fixed&&m.fixed[k]&&ins.length)body+=`<p class="note">${m.fixed[k]}</p>`;
+  if(k==="mix"||(k==="hold"&&m.id==="m4"))body+=`<div class="live" id="live"></div>`;
+  if(k==="mix"||k==="rec")body+=pricesHTML(m,(m.priceKeys||[]).filter(x=>!/^vapor|^placas/.test(x)));
+  if(k==="reg")body+=pricesHTML(m,(m.priceKeys||[]).filter(x=>/^vapor|^placas/.test(x)));
+  if(lastR&&lastR.mid===m.id)body+=`<div class="chips">${measure(k,lastR.r).map(([a,b])=>`<span class="chip">${a}: <b>${b}</b></span>`).join("")}</div>`;
+  body+=`<button class="ghost" type="button" id="toQA">Siguiente: ${nextLabel()}</button><button class="ghost" type="button" id="inspB">Vista de inspección del equipo</button>`;
+  sheet.innerHTML=`<div class="sh-head"><div><div class="eyebrow">Equipo · ${esc(m.product)}</div><h3>${s.name}</h3></div><button class="x" type="button" aria-label="Cerrar">×</button></div><div class="sh-body">${body}</div>`;
+  sheet.hidden=false;sheet.querySelector(".x").onclick=()=>{sheet.hidden=true};
+  sheet.querySelector("#toQA").onclick=()=>{sheet.hidden=true;const n=nextStation();goTo(n);tween.open=true};
+  sheet.querySelector("#inspB").onclick=()=>inspect(k);
+  bindInputs(m);updateLive(m);
+}
+function nextStation(){const m=M();const r=required(m).filter(k=>!visited.has(k)).sort((a,b)=>ORDER.indexOf(a)-ORDER.indexOf(b));return r[0]||"qa"}
+const nextLabel=()=>ST[nextStation()].name;
+function bindInputs(m){sheet.querySelectorAll("[data-k]").forEach(el=>{const sync=()=>{const k=el.dataset.k;let v=el.tagName==="SELECT"?el.value:parseFloat(el.value);
+  if(el.tagName!=="SELECT"&&!Number.isFinite(v))return;vals[m.id][k]=v;sheet.querySelectorAll(`[data-k="${k}"]`).forEach(o=>{if(o!==el)o.value=v});refreshWorld();updateLive(m)};
+  el.addEventListener("input",sync);el.addEventListener("change",sync)})}
+function updateLive(m){const el=$("#live");if(!el)return;const s=m.spec(vals[m.id]);
+  if(s.tube){const A=Math.PI*s.tube.D**2/4;el.innerHTML=`Área de flujo: <b>${fmt(A*1e4,2)} cm²</b> · volumen del tubo: <b>${fmt(A*s.tube.L*1000,1)} L</b> · tramos en planta: <b>${ST.hold.runs}</b>`;return}
+  const Pk=s.pulps.reduce((a,p)=>a+p.kg,0),w=s.batch-Pk-s.sugar-s.citric;
+  el.innerHTML=w<0?`<span style="color:var(--bad)">Los ingredientes superan la masa del lote por <b>${fmt(-w,1)} kg</b>.</span>`:`Agua de dilución calculada: <b>${fmt(w,1)} kg</b> de ${fmt(s.batch,0)} kg`}
+
+function openQA(){
+  const m=M();const req=required(m);
+  const todo=req.map(k=>`<div class="${visited.has(k)?"ok":""}"><i>${visited.has(k)?"✓":"·"}</i>${ST[k].name}${visited.has(k)?"":`<button class="ghost" style="padding:3px 10px" data-go="${k}">Ir</button>`}</div>`).join("");
+  const ready=req.every(k=>visited.has(k));
+  const tol=m.predict.abs?`±${fmt(m.predict.tol,m.predict.tol<0.1?2:1)} ${m.predict.u}`:`±${Math.round(m.predict.tol*100)} %`;
+  sheet.innerHTML=`<div class="sh-head"><div><div class="eyebrow">Sala de control · ${esc(m.product)}</div><h3>${ST.qa.name}</h3></div><button class="x" type="button" aria-label="Cerrar">×</button></div>
+  <div class="sh-body"><p class="info">${ST.qa.info}</p>
+   <div class="eyebrow">Equipos revisados</div><div class="todo">${todo}</div>
+   <div class="predict"><div class="eyebrow" style="color:var(--pipe)">Bitácora de cálculo</div>
+   <div class="ctrl"><label for="pred">${m.predict.l}</label><div class="field"><input id="pred" type="number" inputmode="decimal" step="any" placeholder="calcula a mano" value="${esc(pred)}"><span>${m.predict.u}</span></div>
+   <small>Calcula antes de producir. Acertar (${tol}) cuenta para la tercera estrella.</small></div></div>
+   <button class="go" id="run" ${ready?"":"disabled"}>Producir lote</button>
+   ${ready?"":`<p class="note">Debes revisar todos los equipos del turno antes de liberar el lote.</p>`}
+   <button class="ghost" type="button" id="brief">Ver orden de producción</button><button class="ghost" type="button" id="inspB">Vista de inspección del laboratorio</button></div>`;
+  sheet.hidden=false;sheet.querySelector(".x").onclick=()=>{sheet.hidden=true};
+  sheet.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{sheet.hidden=true;goTo(b.dataset.go);tween.open=true});
+  $("#pred").addEventListener("input",e=>pred=e.target.value);
+  $("#brief").onclick=()=>showBrief(m);$("#inspB").onclick=()=>inspect("qa");
+  $("#run").onclick=()=>run(m);
+}
+
+function measure(k,r){const s=r.s;
+  switch(k){case"rec":return [["Despachado",s.pulps.map(p=>fmt(p.kg,0)+" kg "+FR[p.fruit].name.toLowerCase()).join(" + ")]];
+  case"mix":return [["°Brix",fmt(r.Bx,2)],["Acidez",fmt(r.TA,2)+" %"],["pH",fmt(r.pH,2)],["Fruta",fmt(r.fruitPct,1)+" %"]];
+  case"reg":return [["T tras regeneración",fmt(r.Treg,1)+" °C"]];
+  case"heat":return [["Vapor",fmt(r.steam,0)+" kg/h"],["D a "+fmt(s.T,1)+" °C",fmt(r.Dm*60,2)+" s"]];
+  case"hold":return s.tube?[["Re",fmt(r.Re,0)],["t rápida",fmt(r.tFast,1)+" s"],["t media",fmt(r.tMean,1)+" s"],["Reducción",fmt(r.logR,1)+" log"]]:[["Reducción",fmt(r.logR,1)+" log"],["Aroma",fmt(r.aroma,1)+" %"]];
+  case"pack":return [["Costo",cop(r.costKg)+"/kg"]];}return []}
+
+// ---- pantallas en planta ----
+function drawHMI(k){const h=HMI[k];if(!h)return;const m=M();const v=vals[m.id];const ins=m.inputs.filter(i=>i.st===k);
+  const lines=ins.map(i=>[i.l.replace(/ de pasteurización| de sostenimiento| de regeneración| a despachar|Paquete de /,""),i.type==="sel"?(optsOf(i).find(o=>o[0]===v[i.k])||[0,""])[1].split(" ·")[0].replace(/ \(.*\)/,""):fmt(v[i.k],i.step<1?1:0)+" "+i.u]);
+  if(!ins.length&&m.fixed&&m.fixed[k])lines.push(["Fijo",m.fixed[k].split(": ").pop()]);
+  const meas=(lastR&&lastR.mid===m.id)?measure(k,lastR.r):[];
+  h.redraw((x,W,H)=>{x.fillStyle="#0B1A17";x.fillRect(0,0,W,H);x.fillStyle="#0E6B66";x.fillRect(0,0,W,48);
+    x.fillStyle="#fff";x.font="700 26px Atkinson Hyperlegible,sans-serif";x.textBaseline="middle";x.fillText(ST[k].name.toUpperCase().slice(0,30),14,25);
+    let y=78;x.font="600 22px JetBrains Mono,monospace";
+    if(!lines.length&&!meas.length){x.fillStyle="#7E948C";x.fillText("Sin ajustes en este turno",14,y)}
+    lines.slice(0,4).forEach(([a,b])=>{x.fillStyle="#9DB5AD";x.fillText(a.slice(0,18),14,y);x.fillStyle="#F2B42A";x.textAlign="right";x.fillText(String(b).slice(0,16),W-14,y);x.textAlign="left";y+=36});
+    if(meas.length){x.fillStyle="#2E4A43";x.fillRect(14,y-14,W-28,2);y+=14;meas.slice(0,3).forEach(([a,b])=>{x.fillStyle="#9DB5AD";x.fillText(a.slice(0,18),14,y);x.fillStyle="#7DE0A6";x.textAlign="right";x.fillText(String(b).slice(0,18),W-14,y);x.textAlign="left";y+=34})}})}
+function drawQA(){const m=M(),i=MISSIONS.indexOf(m),s=save[m.id]||{};
+  qaScreen.redraw((x,W,H)=>{x.fillStyle="#0B1A17";x.fillRect(0,0,W,H);x.fillStyle="#E29B00";x.fillRect(0,0,W,10);
+    x.fillStyle="#9DB5AD";x.font="700 26px Atkinson Hyperlegible,sans-serif";x.fillText("ORDEN DE PRODUCCIÓN · TURNO "+(i+1)+" DE 6",30,58);
+    x.fillStyle="#fff";x.font="800 40px Unbounded,Arial Black,sans-serif";x.fillText(m.product,30,112);
+    x.font="600 24px JetBrains Mono,monospace";let y=168;m.order.slice(1,7).forEach(([a,b],j)=>{const cx=30+(j%2)*430,cy=y+Math.floor(j/2)*42;x.fillStyle="#9DB5AD";x.fillText(a.slice(0,14),cx,cy);x.fillStyle="#F2B42A";x.fillText(b.slice(0,18),cx+190,cy)});
+    x.fillStyle="#E29B00";x.font="40px sans-serif";x.fillText("★".repeat(s.stars||0),30,H-40);x.fillStyle="#2E4A43";x.fillText("★".repeat(3-(s.stars||0)),30+40*(s.stars||0),H-40);
+    if(lastR&&lastR.mid===m.id){x.fillStyle=lastR.stars?"#7DE0A6":"#F0796B";x.font="800 30px Unbounded,sans-serif";x.textAlign="right";x.fillText(lastR.stars?"LOTE LIBERADO":"LOTE RETENIDO",W-30,H-44);x.textAlign="left"}})}
+function refreshWorld(){const m=M();initVals(m);const v=vals[m.id];
+  const col=m.id==="m6"?0xF4A812:FR[m.fruit].col;mat.nectar.color.setHex(col);
+  if(m.id==="m4")buildHold(PIPES[v.D],v.L);else if(ST.hold.built!==m.id)buildHold(0.0475,12);ST.hold.built=m.id;
+  const lots=m.id==="m2"?[["LOTE A","Mango 10,8 °Bx"],["LOTE B","Mango 14,2 °Bx"]]:m.id==="m6"?[["MANGO A","10,8 °Bx"],["MARACUYÁ","11,4 °Bx"]]:[[FR[m.fruit].name.toUpperCase(),m.lot[0][1].split(" · ").find(t=>/°Bx/.test(t))||""],["RESERVA","—"]];
+  ST.rec.labels.forEach((L,i)=>L.redraw((x,W,H)=>{const sel=m.id==="m2"&&v.lote===(i?"B":"A");x.fillStyle=sel?"#E29B00":"#fff";x.fillRect(0,0,W,H);x.strokeStyle="#14302A";x.lineWidth=6;x.strokeRect(3,3,W-6,H-6);
+    x.fillStyle="#14302A";x.textAlign="center";x.textBaseline="middle";x.font=`800 ${H*.32}px Unbounded,sans-serif`;x.fillText(lots[i][0],W/2,H*.36);x.font=`700 ${H*.22}px Atkinson Hyperlegible,sans-serif`;x.fillText(lots[i][1],W/2,H*.72)}));
+  ORDER.forEach(drawHMI);drawQA()}
+
+// ---- producir ----
+function run(m){
+  const s=m.spec(vals[m.id]);const Pk=s.pulps.reduce((a,p)=>a+p.kg,0);
+  if(s.batch-Pk-s.sugar-s.citric<-1e-9){toast("El lote no cierra: los ingredientes superan la masa del lote.");return}
+  const btn=$("#run");if(btn){btn.disabled=true;btn.textContent="Analizando el lote…"}
+  setTimeout(()=>{
+  const r=simulate(s);const checks=[...legal(r),...m.checks(r)];
+  const pv=parseFloat(String(pred).replace(",","."));const real=m.predict.get(r);
+  const predOk=Number.isFinite(pv)&&(m.predict.abs?Math.abs(pv-real)<=m.predict.tol+1e-9:Math.abs(pv-real)<=m.predict.tol*Math.abs(real));
+  checks.push({cat:"efic",label:"Predicción de la bitácora acertada",ok:predOk,d:Number.isFinite(pv)?`tú ${fmt(pv,2)} · planta ${fmt(real,2)}`:"sin predicción",h:Number.isFinite(pv)?"Revisa tu cálculo con el manual de planta.":"Escribe tu cálculo antes de producir."});
+  const pass=c=>checks.filter(x=>x.cat===c).every(x=>x.ok);
+  let stars=0;if(pass("seg")&&pass("norma")){stars=1;if(pass("cliente")){stars=2;if(pass("efic"))stars=3}}
+  const pts=stars*100+(predOk?25:0)+(stars===3?25:0);
+  const prev={...(save[m.id]||{})};
+  save.attempts[m.id]=(save.attempts[m.id]||0)+1;
+  save[m.id]={stars:Math.max(stars,prev.stars||0),pts:Math.max(pts,prev.pts||0),v:{...vals[m.id]}};persist();
+  const yes=b=>b?"Sí":"No";
+  logEvent({tipo:"intento",turno:m.id,producto:m.product,intento:save.attempts[m.id],estrellas:stars,puntos:pts,prediccion:Number.isFinite(pv)?pv:"",valor_real:Math.round(real*1e4)/1e4,
+    prediccion_ok:yes(predOk),inocuidad_ok:yes(pass("seg")),norma_ok:yes(pass("norma")),cliente_ok:yes(pass("cliente")),eficiencia_ok:yes(pass("efic")),
+    fallas:checks.filter(c=>!c.ok).map(c=>c.label).join(" | "),costo_kg:Math.round(r.costKg),variables:JSON.stringify(vals[m.id])});
+  lastR={mid:m.id,r,stars};
+  sheet.hidden=true;goTo("pack");producing=3.4;
+  setTimeout(()=>{refreshWorld();renderHud();showReport(m,r,checks,stars,pts,prev)},3500)},30);
+}
+function tiles(m,r){const s=r.s,T=[];const has=k=>required(m).includes(k);
+  if(has("mix")||has("rec"))T.push(["°Brix",fmt(r.Bx,2)],["Acidez",fmt(r.TA,2)+" %"],["pH (est.)",fmt(r.pH,2)],["Fruta",fmt(r.fruitPct,1)+" %"],["Sól. de fruta",fmt(r.fsolPct,2)+" %"],["Agua",fmt(r.water,1)+" kg"]);
+  if(s.tube)T.push(["v media",fmt(r.v,3)+" m/s"],["Reynolds",fmt(r.Re,0)],["Régimen",r.Re<2100?"laminar":"turbulento"],["t rápida",fmt(r.tFast,1)+" s"],["t media",fmt(r.tMean,1)+" s"]);
+  if(has("heat")||has("hold"))T.push(["D a "+fmt(s.T,1)+" °C",fmt(r.Dm*60,2)+" s"],["Reducción",fmt(r.logR,1)+" log"],["Aroma",fmt(r.aroma,1)+" %"]);
+  if(has("reg"))T.push(["c_p",fmt(r.cp,3)+" kJ/kg·K"],["T tras regen.",fmt(r.Treg,1)+" °C"],["Calor",fmt(r.Qh/3600,0)+" kW"],["Vapor",fmt(r.steam,0)+" kg/h"],["Energía",cop(r.costH)+"/h"]);
+  return T.map(([a,b])=>`<div class="tile"><span>${a}</span><b>${b}</b></div>`).join("")}
+function costHTML(m,r){if(!(m.priceKeys||[]).some(k=>/^pulpa|azucar/.test(k)))return "";
+  const rows=r.costItems.filter(c=>c[1]>0).map(([n,kg,p])=>`<tr><td>${esc(n)}</td><td>${fmt(kg,1)}</td><td>${cop(p)}</td><td>${cop(kg*p)}</td></tr>`).join("");
+  const en=m.id==="m6"?`<tr><td>Energía (vapor + regenerador, ${fmt(r.s.batch/r.s.flow,1)} h)</td><td></td><td>${cop(r.costH)}/h</td><td>${cop(r.energy)}</td></tr>`:"";
+  const tot=m.id==="m6"?r.cost:r.raw;
+  return `<div><div class="grp" style="margin-top:0">Costeo del lote</div><div class="tbl"><table><thead><tr><th>Concepto</th><th>kg</th><th>Precio unitario</th><th>Subtotal</th></tr></thead><tbody>${rows}${en}
+   <tr class="tot"><td>Total</td><td>${fmt(r.s.batch,0)}</td><td></td><td>${cop(tot)}</td></tr><tr class="tot"><td>Costo por kilogramo de néctar</td><td></td><td></td><td>${cop(tot/r.s.batch)}/kg</td></tr></tbody></table></div></div>`}
+function showReport(m,r,checks,stars,pts,prev){
+  const head=["Lote retenido","Lote aprobado","Cliente satisfecho","Proceso ejemplar"][stars];
+  const sub=["Hay fallas de inocuidad o de norma. El lote no puede salir de planta.","Cumple la norma, pero no lo que pidió el cliente.","Cumple norma y cliente. Falta eficiencia o la predicción.","Inocuo, legal, a gusto del cliente, eficiente y bien calculado."][stars];
+  const names={seg:"Inocuidad y operación",norma:"Resolución 3929 de 2013 (néctar)",cliente:"Especificación del cliente",efic:"Eficiencia y cálculo"};
+  let h=`<div class="card-h"><div><div class="eyebrow">Informe del laboratorio de calidad · ${esc(m.product)}</div><h2>${head}</h2></div><button class="x" type="button" aria-label="Cerrar">×</button></div><div class="card-b">
+   <div class="verdict"><div class="big">${starStr(stars)}</div><p>${sub} · <span class="num">+${pts} pts</span> · intento ${save.attempts[m.id]}</p></div><div class="tiles">${tiles(m,r)}</div>${costHTML(m,r)}<div class="checks">`;
+  ["seg","norma","cliente","efic"].forEach(c=>{const L=checks.filter(x=>x.cat===c);if(!L.length)return;
+    h+=`<div class="grp">${names[c]}</div>`+L.map(x=>`<div class="chk${x.ok?"":" ko"}"><i>${x.ok?"✓":"✕"}</i><div><div>${x.label} <span class="d">· ${x.d}</span></div>${x.ok?"":`<div>${x.h}</div>`}</div></div>`).join("")});
+  const i=MISSIONS.indexOf(m);const canNext=stars>=1&&i<5;
+  h+=`</div><div class="row"><button class="ghost" id="again">Volver a la planta y ajustar</button>${canNext?`<button class="go" id="next">Siguiente turno</button>`:""}</div></div>`;
+  card.innerHTML=h;modal.hidden=false;
+  card.querySelector(".x").onclick=()=>modal.hidden=true;$("#again").onclick=()=>modal.hidden=true;
+  if(canNext)$("#next").onclick=()=>selectMission(MISSIONS[i+1].id);
+  if(stars>=1&&i<5&&!(prev.stars>=1))toast(`Turno ${i+2} desbloqueado`);
+}
+
+// ---- modales ----
+function showBrief(m){const i=MISSIONS.indexOf(m);
+  card.innerHTML=`<div class="card-h"><div><div class="eyebrow">Turno ${i+1} de 6 · ${esc(m.sub)} · Cliente: ${esc(m.client)}</div><h2>Orden de producción: ${esc(m.product)}</h2></div><button class="x" type="button" aria-label="Cerrar">×</button></div>
+  <div class="card-b"><div class="two"><div style="display:flex;flex-direction:column;gap:12px"><p>${m.brief}</p><div class="concept">${m.concept}</div>
+   <div><div class="eyebrow" style="margin-bottom:6px">Equipos que debes ajustar</div><div class="chips">${required(m).map(k=>`<span class="chip">${ST[k].name}</span>`).join("")}<span class="chip">${ST.qa.name}</span></div></div>
+   ${pricesHTML(m)}</div>
+   <aside class="order"><div class="eyebrow" style="color:var(--accent-ink)">Orden de producción</div><dl>${m.order.map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join("")}</dl></aside></div>
+   <div class="row"><button class="go" id="enter">Entrar a la planta</button></div></div>`;
+  modal.hidden=false;sheet.hidden=true;card.querySelector(".x").onclick=()=>modal.hidden=true;$("#enter").onclick=()=>{modal.hidden=true;goTo(nextStation());tween.open=true}}
+function showTurnos(){
+  card.innerHTML=`<div class="card-h"><div><div class="eyebrow">Línea de néctares de fruta</div><h2>Órdenes de producción</h2></div><button class="x" type="button" aria-label="Cerrar">×</button></div>
+  <div class="card-b"><p>${CONFIG.desbloquear?"Tu docente habilitó todos los turnos.":"Cada turno con al menos una estrella desbloquea el siguiente."} Estrellas: 1 por inocuidad y norma, 2 si cumples al cliente, 3 si además eres eficiente y aciertas la predicción.</p><div class="mlist">${MISSIONS.map((m,i)=>{const s=save[m.id]||{};const lk=!unlocked(i);
+    return `<button class="mi${s.stars?" done":""}" data-m="${m.id}" ${lk?"disabled":""} aria-current="${m.id===cur}"><span class="n">${i+1}</span><span><b>${esc(m.product)}</b><span>${lk?"Bloqueado":esc(m.sub)+" · "+esc(m.client)}</span></span><span class="stars">${starStr(s.stars||0)}</span></button>`}).join("")}</div></div>`;
+  modal.hidden=false;sheet.hidden=true;card.querySelector(".x").onclick=()=>modal.hidden=true;
+  card.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>selectMission(b.dataset.m))}
+function showEquipos(){const m=M();const req=required(m);
+  card.innerHTML=`<div class="card-h"><div><div class="eyebrow">Recorrido</div><h2>Ir a un equipo</h2></div><button class="x" type="button" aria-label="Cerrar">×</button></div>
+  <div class="card-b"><p>La cámara te lleva frente al equipo. Los marcados en ámbar se ajustan en este turno.</p><div class="eqlist">${ORDER.map(k=>`<button class="eq-b${req.includes(k)||k==="qa"?" req":""}" data-k="${k}"><b>${ST[k].name}</b><span>${req.includes(k)?(visited.has(k)?"Revisado":"Por ajustar"):k==="qa"?"Liberación del lote":"Solo observación"}</span></button>`).join("")}</div></div>`;
+  modal.hidden=false;sheet.hidden=true;card.querySelector(".x").onclick=()=>modal.hidden=true;
+  card.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{modal.hidden=true;goTo(b.dataset.k);tween.open=true})}
+function showTeam(){if(!profile)return showReg();const p=profile;
+  card.innerHTML=`<div class="card-h"><div><div class="eyebrow">${p.modalidad==="pareja"?"Trabajo en pareja":"Trabajo individual"}${p.grupo?" · "+esc(p.grupo):""}</div><h2>Equipo de trabajo</h2></div><button class="x" type="button" aria-label="Cerrar">×</button></div>
+  <div class="card-b"><div class="tbl"><table><thead><tr><th>Nombre</th><th>Código</th></tr></thead><tbody>${p.integrantes.map(x=>`<tr><td>${esc(x.nombre)}</td><td>${esc(x.codigo)}</td></tr>`).join("")}</tbody></table></div>
+  <p class="note">Tiempo activo en la planta: <b>${hms(save.time.total||0)}</b> · en esta sesión: <b>${hms(sessionSec)}</b>. Tu docente ve tu nombre, código, intentos, estrellas, puntos y tiempo en su panel.</p>
+  <div class="row"><button class="ghost" id="logout">Cerrar sesión</button><button class="go" id="stay">Seguir en la planta</button></div></div>`;
+  modal.hidden=false;sheet.hidden=true;card.querySelector(".x").onclick=()=>modal.hidden=true;$("#stay").onclick=()=>modal.hidden=true;
+  $("#logout").onclick=()=>{logSessionEnd();persist();profile=null;SS.set("nectarlab-sesion",null);modal.hidden=true;showReg()}}
+const hms=s=>{s=Math.round(+s||0);const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?`${h} h ${String(m).padStart(2,"0")} min`:`${m} min ${String(s%60).padStart(2,"0")} s`};
+function showManual(){
+  card.innerHTML=`<div class="card-h"><div><div class="eyebrow">Referencia</div><h2>Manual de planta</h2></div><button class="x" type="button" aria-label="Cerrar">×</button></div>
+  <div class="card-b">
+  <div class="callout"><h4>¿Qué tabla de la Resolución 3929 aplica a qué?</h4>
+   <ul><li><b>Tabla 1 · pulpa (o jugo):</b> °Brix y acidez mínimos de la pulpa de cada fruta. Es el criterio para recibir la materia prima.</li>
+   <li><b>Tabla 8 · néctar:</b> porcentaje mínimo de pulpa en el néctar y porcentaje mínimo de sólidos solubles que la fruta aporta al néctar. En mango, maracuyá y lulo equivale a % de pulpa × °Brix mínimo de la Tabla 1 (maracuyá: 15 % × 12,0 °Bx = 1,80 %).</li>
+   <li><b>Tabla 9 · néctar terminado:</b> °Brix ≥ 10, pH entre 2,5 y 4,6 y acidez titulable ≥ 0,2 % como ácido cítrico.</li></ul>
+   <p class="note">Si la pulpa trae menos °Brix que la Tabla 1, el porcentaje mínimo de pulpa de la Tabla 8 no alcanza para aportar los sólidos de fruta exigidos.</p></div>
+  <div class="mcols">
+   <div><h4>Balance de materia</h4><div class="eq">m_agua = m_lote − Σm_pulpa − m_azúcar − m_ácido</div><div class="eq">°Bx = (Σ m_p·Bx_p/100 + m_azúcar + m_ácido)/m_lote × 100</div><div class="eq">AT (%) = (Σ m_p·AT_p/100 + m_ácido)/m_lote × 100</div><div class="eq">Sólidos de fruta (%) = Σ m_p·Bx_p / m_lote</div><p class="note">pH estimado con un modelo empírico didáctico: pH ≈ 3,55 − 0,85·log₁₀(AT/0,3).</p></div>
+   <div><h4>Pasteurización</h4><div class="eq">D_T = D_ref·10^((T_ref − T)/z)</div><div class="eq">Reducciones log = t/D_T</div><div class="eq">Retención aroma = 10^(−t/D_T,aroma)</div><p class="note">Meta: 5 reducciones log (criterio 5-log del HACCP para jugos, 21 CFR 120.24). Parámetros ilustrativos: microorganismo D₈₅ = 0,08 min, z = 7 °C; aroma D₈₅ = 6 min, z = 25 °C.</p></div>
+   <div><h4>Tubo de sostenimiento</h4><div class="eq">v̄ = Q/A · Re = ρ v̄ D/μ</div><div class="eq">Laminar (Re &lt; 2100): v_máx = 2 v̄ · Turbulento: ≈ 1,22 v̄</div><div class="eq">t_rápida = L/v_máx · t_media = L/v̄</div><p class="note">La letalidad se evalúa con la partícula más rápida; el daño de calidad, con el tiempo medio.</p></div>
+   <div><h4>Balance de energía</h4><div class="eq">c_p = 1,675 + 0,025·X_w (kJ/kg·K)</div><div class="eq">T_reg = T_in + ε(T_past − T_in)</div><div class="eq">Q = ṁ c_p (T_past − T_reg) · ṁ_vapor = Q/h_fg</div><p class="note">c_p de Dickerson para jugos; X_w ≈ 100 − °Bx − 1 %. h_fg = 2.202 kJ/kg (vapor saturado a 120 °C). Caldera de 20 BHP: máximo 300 kg/h de vapor.</p></div>
+  </div>
+  <div><h4 style="margin:0 0 4px;font-size:13px">Requisitos por fruta (Resolución 3929 de 2013)</h4>
+  <div class="tbl"><table><thead><tr><th>Fruta</th><th>Néctar: pulpa mín. (% m/m) · T8</th><th>Néctar: sólidos de fruta mín. (%) · T8</th><th>Pulpa: °Bx mín. · T1</th><th>Pulpa: acidez mín. (%) · T1</th></tr></thead><tbody>${Object.values(FR).map(f=>`<tr><td>${f.name}</td><td>${f.minFruit}</td><td>${fmt(f.minSol,2)}</td><td>${fmt(f.tabBx,1)}</td><td>${fmt(f.tabTA,2)}</td></tr>`).join("")}</tbody></table></div>
+  <p class="note" style="margin-top:6px">Fuente: <a href="https://normograma.invima.gov.co/compilacion/docs/resolucion_minsaludps_3929_2013.htm" target="_blank" rel="noopener">Resolución 3929 de 2013, compilación Invima</a>. Sus requisitos microbiológicos fueron derogados por la Resolución 1407 de 2022.</p></div>
+  <div><h4 style="margin:0 0 4px;font-size:13px">Precios unitarios vigentes en la planta</h4>
+  <div class="tbl"><table><thead><tr><th>Insumo</th><th>Precio</th><th>Origen del dato</th></tr></thead><tbody>${PRICE_META.map(p=>`<tr><td>${esc(p[1])}</td><td>${priceTxt(p[0])}</td><td style="text-align:left">${esc((CONFIG.precios||{})[p[0]]!==undefined&&+CONFIG.precios[p[0]]!==p[3]?"Definido por el docente":p[4])}</td></tr>`).join("")}</tbody></table></div></div></div>`;
+  modal.hidden=false;sheet.hidden=true;card.querySelector(".x").onclick=()=>modal.hidden=true}
+function selectMission(id){cur=id;save._cur=id;persist();visited=new Set();pred="";lastR=null;const m=M();initVals(m);refreshWorld();renderHud();showBrief(m)}
+
+// ================== REGISTRO DE ESTUDIANTES ==================
+function showReg(){
+  closeAll();const last=LS.get("nectarlab-ultimo",null)||{modalidad:"individual",integrantes:[{},{}],grupo:""};
+  const a=last.integrantes[0]||{},b=last.integrantes[1]||{};
+  $("#regForm").innerHTML=`<div class="eyebrow">Ingreso a la planta</div><h2>Registro del equipo de trabajo</h2>
+   <fieldset class="seg"><legend class="sr">Modalidad</legend>
+    <label><input type="radio" name="mod" value="individual" ${last.modalidad!=="pareja"?"checked":""}><span>Individual</span></label>
+    <label><input type="radio" name="mod" value="pareja" ${last.modalidad==="pareja"?"checked":""}><span>En pareja</span></label></fieldset>
+   <div class="pgrid"><div class="pf"><label for="n1">Nombre completo</label><input id="n1" autocomplete="name" value="${esc(a.nombre||"")}"></div><div class="pf"><label for="c1">Código estudiantil</label><input id="c1" inputmode="numeric" value="${esc(a.codigo||"")}"></div></div>
+   <div class="pgrid" id="p2"><div class="pf"><label for="n2">Nombre del compañero o compañera</label><input id="n2" value="${esc(b.nombre||"")}"></div><div class="pf"><label for="c2">Código estudiantil</label><input id="c2" inputmode="numeric" value="${esc(b.codigo||"")}"></div></div>
+   <div class="pf"><label for="grp">Curso y grupo <span class="opt">(opcional)</span></label><input id="grp" placeholder="Ej.: Operaciones unitarias · Grupo 01" value="${esc(last.grupo||"")}"></div>
+   <div class="err" id="regErr" role="alert"></div>
+   <button class="go" type="submit">Ingresar a la planta</button>
+   <p class="note">Tu docente verá tu nombre, código, intentos, estrellas, puntos y tiempo de uso. NectarLab está pensado para computador con teclado y mouse.</p>
+   <button class="linkb" type="button" id="toDoc">Acceso docente</button>`;
+  const sync=()=>{$("#p2").hidden=$("#regForm").querySelector("input[name=mod]:checked").value!=="pareja"};
+  $("#regForm").querySelectorAll("input[name=mod]").forEach(r=>r.onchange=sync);sync();
+  $("#toDoc").onclick=()=>openDocente();
+  regEl.hidden=false;setTimeout(()=>$("#n1").focus(),50);
+}
+$("#regForm").addEventListener("submit",e=>{e.preventDefault();
+  const mod=$("#regForm").querySelector("input[name=mod]:checked").value;
+  const clean=s=>String(s||"").trim().replace(/\s+/g," ");
+  const ints=[{nombre:clean($("#n1").value),codigo:clean($("#c1").value).replace(/\s/g,"")}];
+  if(mod==="pareja")ints.push({nombre:clean($("#n2").value),codigo:clean($("#c2").value).replace(/\s/g,"")});
+  const err=t=>{$("#regErr").textContent=t};
+  for(const [i,x] of ints.entries()){const who=i?"del compañero o compañera":"";
+    if(x.nombre.length<5||!/\s/.test(x.nombre))return err(`Escribe el nombre y apellido ${who}`.trim()+".");
+    if(!/^\d{5,12}$/.test(x.codigo))return err(`El código estudiantil ${who} debe tener solo números (entre 5 y 12 dígitos).`.replace("  "," "))}
+  if(ints.length===2&&ints[0].codigo===ints[1].codigo)return err("Los dos integrantes no pueden tener el mismo código.");
+  profile={modalidad:mod,integrantes:ints,grupo:clean($("#grp").value).slice(0,80),inicio:new Date().toISOString()};
+  SS.set("nectarlab-sesion",profile);LS.set("nectarlab-ultimo",profile);sessionSec=0;sessionLogged=false;
+  loadTeam();vals={};visited=new Set();pred="";lastR=null;
+  cur=save._cur&&MISSIONS.find(m=>m.id===save._cur)?save._cur:"m1";
+  regEl.hidden=true;logEvent({tipo:"ingreso"});
+  refreshWorld();renderHud();showBrief(M());
+});
+
+// ================== PANEL DOCENTE ==================
+let DOC={rows:[],src:"local",turno:"todos"};
+function openDocente(){
+  docEl.hidden=false;
+  docEl.innerHTML=`<div class="doc-login"><img src="${USCO_LOGO}" alt="Escudo de la Universidad Surcolombiana" width="64" height="66">
+   <div class="eyebrow">Universidad Surcolombiana · Ingeniería Agroindustrial</div><h2>Acceso docente</h2><p class="note">Ingresa el código de acceso para ver y exportar las estadísticas de uso de NectarLab.</p>
+   <form id="docLogin"><div class="pf"><label for="dcode">Código de acceso</label><input id="dcode" type="password" autocomplete="off"></div><div class="err" id="dErr" role="alert"></div>
+   <div class="row" style="justify-content:space-between"><button class="ghost" type="button" id="dBack">Volver</button><button class="go" type="submit">Entrar</button></div></form></div>`;
+  $("#dBack").onclick=()=>{docEl.hidden=true};
+  $("#docLogin").onsubmit=async e=>{e.preventDefault();if($("#dcode").value.trim()!==DOCENTE_CODE){$("#dErr").textContent="Código incorrecto.";return}
+    docEl.innerHTML=`<div class="doc-wrap"><p class="note">Cargando registros…</p></div>`;await loadRecords();renderPanel()};
+  setTimeout(()=>$("#dcode").focus(),50);
+}
+async function loadRecords(){
+  DOC.err="";
+  if(SHEET_WEBAPP_URL){try{const r=await fetch(`${SHEET_WEBAPP_URL}?tipo=registros&key=${encodeURIComponent(DOCENTE_CODE)}`);const j=await r.json();
+      if(Array.isArray(j)){DOC.rows=j;DOC.src="central";return}DOC.err="El registro central respondió sin datos válidos."}catch(e){DOC.err="No se pudo leer el registro central (sin conexión o URL incorrecta)."}}
+  DOC.rows=LOG.map(r=>({...r}));DOC.src="local";
+}
+const num=x=>{const v=parseFloat(String(x).replace(",","."));return Number.isFinite(v)?v:0};
+function analyze(rows){
+  rows=rows.map(r=>({...r,estrellas:num(r.estrellas),puntos:num(r.puntos),tiempo_turno_s:num(r.tiempo_turno_s),tiempo_activo_total_s:num(r.tiempo_activo_total_s),tiempo_sesion_s:num(r.tiempo_sesion_s),intento:num(r.intento)}));
+  const att=rows.filter(r=>r.tipo==="intento");
+  // por equipo: mejor resultado por turno y tiempo activo máximo registrado
+  const teams={};rows.forEach(r=>{const k=r.equipo||String(r.codigo1);if(!k)return;const T=teams[k]=teams[k]||{k,members:[],best:{},att:0,pred:0,time:0,first:r.fecha,last:r.fecha,grupo:r.grupo||""};
+    [[r.nombre1,r.codigo1],[r.nombre2,r.codigo2]].forEach(([n,c])=>{if(c&&!T.members.find(x=>String(x.c)===String(c)))T.members.push({n,c:String(c)})});
+    T.time=Math.max(T.time,r.tiempo_activo_total_s);if(r.fecha<T.first)T.first=r.fecha;if(r.fecha>T.last)T.last=r.fecha;if(r.grupo)T.grupo=r.grupo;
+    if(r.tipo==="intento"){T.att++;if(r.prediccion_ok==="Sí")T.pred++;const b=T.best[r.turno]||{s:0,p:0};T.best[r.turno]={s:Math.max(b.s,r.estrellas),p:Math.max(b.p,r.puntos)}}});
+  const students={};Object.values(teams).forEach(T=>{const st=Object.values(T.best).reduce((a,b)=>a+b.s,0),pt=Object.values(T.best).reduce((a,b)=>a+b.p,0),done=Object.values(T.best).filter(b=>b.s>=1).length;
+    T.members.forEach(mb=>{const S=students[mb.c]=students[mb.c]||{codigo:mb.c,nombre:mb.n,companeros:new Set(),grupo:T.grupo,equipos:0,stars:0,pts:0,done:0,att:0,pred:0,time:0,first:T.first,last:T.last,best:{}};
+      S.equipos++;S.att+=T.att;S.pred+=T.pred;S.time+=T.time;if(T.first<S.first)S.first=T.first;if(T.last>S.last)S.last=T.last;if(T.grupo)S.grupo=T.grupo;
+      T.members.filter(x=>x.c!==mb.c).forEach(x=>S.companeros.add(x.n));
+      Object.entries(T.best).forEach(([t,b])=>{const o=S.best[t]||{s:0,p:0};S.best[t]={s:Math.max(o.s,b.s),p:Math.max(o.p,b.p)}})})});
+  Object.values(students).forEach(S=>{S.stars=Object.values(S.best).reduce((a,b)=>a+b.s,0);S.pts=Object.values(S.best).reduce((a,b)=>a+b.p,0);S.done=Object.values(S.best).filter(b=>b.s>=1).length});
+  const turns=MISSIONS.map(m=>{const A=att.filter(r=>r.turno===m.id);const teamsT=new Set(A.map(r=>r.equipo));const rej=A.filter(r=>r.estrellas<1).length;
+    const fails={};A.forEach(r=>String(r.fallas||"").split(" | ").filter(Boolean).forEach(f=>fails[f]=(fails[f]||0)+1));const top=Object.entries(fails).sort((a,b)=>b[1]-a[1])[0];
+    const firstOk={};A.filter(r=>r.estrellas>=1).forEach(r=>{if(!(r.equipo in firstOk)||r.intento<firstOk[r.equipo].intento)firstOk[r.equipo]=r});const fo=Object.values(firstOk);
+    const best={};A.forEach(r=>{best[r.equipo]=Math.max(best[r.equipo]||0,r.estrellas)});const bv=Object.values(best);
+    return {m,att:A.length,teams:teamsT.size,rej:A.length?rej/A.length:0,pred:A.length?A.filter(r=>r.prediccion_ok==="Sí").length/A.length:0,top:top?`${top[0]} (${top[1]})`:"—",
+      triesToOk:fo.length?fo.reduce((a,r)=>a+r.intento,0)/fo.length:null,timeToOk:fo.length?fo.reduce((a,r)=>a+r.tiempo_turno_s,0)/fo.length:null,avgBest:bv.length?bv.reduce((a,b)=>a+b,0)/bv.length:null}});
+  return {rows,att,teams,students:Object.values(students).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre),"es")),turns};
+}
+const fdate=f=>{const d=new Date(f);if(isNaN(d))return String(f||"");const p=x=>String(x).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`};
+function renderPanel(){
+  const A=analyze(DOC.rows);const S=A.students;
+  const nAtt=A.att.length,lib=A.att.filter(r=>r.estrellas>=1).length,pOk=A.att.filter(r=>r.prediccion_ok==="Sí").length;
+  const tTot=Object.values(A.teams).reduce((a,t)=>a+t.time,0);
+  const srcTxt=DOC.src==="central"?"Registro central (Google Sheets): todos los computadores.":"Registros guardados en este computador."+(SHEET_WEBAPP_URL?"":" El registro central aún no está configurado.");
+  docEl.innerHTML=`<div class="doc-wrap">
+  <header class="doc-head"><img src="${USCO_LOGO}" alt="Escudo de la Universidad Surcolombiana" width="52" height="54">
+   <div><div class="eyebrow">Universidad Surcolombiana · Facultad de Ingeniería · Programa de Ingeniería Agroindustrial</div><h2>Panel docente · NectarLab</h2><p class="note">Planta Virtual de Procesos Agroindustriales · línea de néctares · ${esc(DOCENTE_NOMBRE)}</p></div>
+   <button class="ghost" id="dClose" type="button">Cerrar panel</button></header>
+  <p class="srcline ${DOC.err?"warn":""}">${esc(srcTxt)} ${esc(DOC.err||"")}</p>
+  <div class="kpis">
+   <div><span>Estudiantes</span><b>${S.length}</b></div><div><span>Equipos de trabajo</span><b>${Object.keys(A.teams).length}</b></div>
+   <div><span>Lotes producidos</span><b>${nAtt}</b></div><div><span>Lotes liberados</span><b>${nAtt?Math.round(lib/nAtt*100):0} %</b></div>
+   <div><span>Predicciones acertadas</span><b>${nAtt?Math.round(pOk/nAtt*100):0} %</b></div><div><span>Tiempo activo total</span><b>${hms(tTot)}</b></div></div>
+  <section><div class="sec-h"><h3>Resumen por estudiante</h3><button class="ghost" id="xEst" type="button">Exportar CSV</button></div>
+   <div class="tbl"><table class="dt"><thead><tr><th>Nombre</th><th>Código</th><th>Compañero(s)</th><th>Grupo</th>${MISSIONS.map((m,i)=>`<th title="${esc(m.product)}">T${i+1}</th>`).join("")}<th>Turnos ≥1★</th><th>Estrellas</th><th>Puntos</th><th>Intentos</th><th>Aciertos predicción</th><th>Tiempo activo</th><th>Última actividad</th></tr></thead>
+   <tbody>${S.length?S.map(s=>`<tr><td>${esc(s.nombre)}</td><td>${esc(s.codigo)}</td><td style="text-align:left">${esc([...s.companeros].join(", ")||"—")}</td><td style="text-align:left">${esc(s.grupo||"—")}</td>${MISSIONS.map(m=>`<td class="st">${s.best[m.id]?"★".repeat(s.best[m.id].s)||"0":"·"}</td>`).join("")}<td>${s.done}/6</td><td>${s.stars}/18</td><td>${s.pts}</td><td>${s.att}</td><td>${s.att?Math.round(s.pred/s.att*100):0} %</td><td>${hms(s.time)}</td><td>${fdate(s.last)}</td></tr>`).join(""):`<tr><td colspan="${MISSIONS.length+11}" style="text-align:left">Aún no hay registros. Cuando los estudiantes ingresen y produzcan lotes, aparecerán aquí.</td></tr>`}</tbody></table></div></section>
+  <section><div class="sec-h"><h3>Dificultad por turno</h3><button class="ghost" id="xTur" type="button">Exportar CSV</button></div>
+   <div class="tbl"><table class="dt"><thead><tr><th>Turno</th><th>Equipos</th><th>Lotes</th><th>Lotes retenidos</th><th>Intentos hasta liberar</th><th>Tiempo hasta liberar</th><th>Estrellas promedio</th><th>Predicción acertada</th><th>Falla más frecuente</th></tr></thead>
+   <tbody>${A.turns.map((t,i)=>`<tr><td>T${i+1} · ${esc(t.m.product)}</td><td>${t.teams}</td><td>${t.att}</td><td>${Math.round(t.rej*100)} %</td><td>${t.triesToOk===null?"—":fmt(t.triesToOk,1)}</td><td>${t.timeToOk===null?"—":hms(t.timeToOk)}</td><td>${t.avgBest===null?"—":fmt(t.avgBest,1)}</td><td>${Math.round(t.pred*100)} %</td><td style="text-align:left">${esc(t.top)}</td></tr>`).join("")}</tbody></table></div></section>
+  <section><div class="sec-h"><h3>Últimos lotes producidos</h3><button class="ghost" id="xDet" type="button">Exportar detalle completo (CSV)</button></div>
+   <div class="tbl"><table class="dt"><thead><tr><th>Fecha</th><th>Integrantes</th><th>Turno</th><th>Intento</th><th>Estrellas</th><th>Puntos</th><th>Predicción</th><th>Costo/kg</th><th>Tiempo en el turno</th><th>Fallas</th></tr></thead>
+   <tbody>${A.att.slice(-40).reverse().map(r=>`<tr><td>${fdate(r.fecha)}</td><td style="text-align:left">${esc([r.nombre1,r.nombre2].filter(Boolean).join(" y "))}</td><td>${esc(r.turno)}</td><td>${r.intento}</td><td class="st">${"★".repeat(r.estrellas)||"0"}</td><td>${r.puntos}</td><td>${esc(r.prediccion_ok)}</td><td>${r.costo_kg?cop(num(r.costo_kg)):"—"}</td><td>${hms(r.tiempo_turno_s)}</td><td style="text-align:left;max-width:380px">${esc(r.fallas||"—")}</td></tr>`).join("")||`<tr><td colspan="10" style="text-align:left">Sin lotes registrados.</td></tr>`}</tbody></table></div></section>
+  <section class="cfg"><div class="sec-h"><h3>Precios unitarios y turnos</h3></div>
+   <p class="note">Los costos mínimos de referencia de cada turno se recalculan con estos precios. ${SHEET_WEBAPP_URL?"Al guardar, los precios se publican para todos los computadores.":"Sin registro central, los precios se guardan solo en este computador."}</p>
+   <div class="pricegrid">${PRICE_META.map(p=>`<div class="pf"><label for="pr_${p[0]}">${esc(p[1])} <span class="opt">(${p[2]})</span></label><input id="pr_${p[0]}" type="number" min="0" step="any" value="${PR[p[0]]}"><small>${esc(p[4])}</small></div>`).join("")}</div>
+   <label class="chkl"><input type="checkbox" id="unl" ${CONFIG.desbloquear?"checked":""}> Habilitar todos los turnos desde el inicio (útil si los estudiantes cambian de computador)</label>
+   <div class="row" style="justify-content:flex-start"><button class="go" id="savePr" type="button">Guardar configuración</button><button class="ghost" id="resetPr" type="button">Restablecer precios de referencia</button><span class="note" id="prMsg"></span></div></section>
+  <section class="danger"><div class="sec-h"><h3>Borrar registros</h3></div><p class="note">${DOC.src==="central"?"Borra todos los registros del registro central. El progreso guardado en cada computador no se borra.":"Borra los registros guardados en este computador."}</p><button class="ghost dangerb" id="delAll" type="button">Borrar registros</button></section>
+  <footer class="note">NectarLab ${VERSION} · Universidad Surcolombiana · ${esc(DOCENTE_NOMBRE)}</footer></div>`;
+  $("#dClose").onclick=()=>{docEl.hidden=true};
+  $("#xEst").onclick=()=>exportEst(A);$("#xTur").onclick=()=>exportTur(A);$("#xDet").onclick=()=>exportDet(A);
+  $("#savePr").onclick=async()=>{const pr={};for(const p of PRICE_META){const v=parseFloat($("#pr_"+p[0]).value);if(!Number.isFinite(v)||v<0){$("#prMsg").textContent=`Revisa el valor de «${p[1]}».`;return}pr[p[0]]=v}
+    CONFIG={precios:pr,desbloquear:$("#unl").checked};LS.set("nectarlab-config",CONFIG);applyConfig();
+    if(SHEET_WEBAPP_URL){try{await fetch(SHEET_WEBAPP_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({tipo:"config",secret:DOCENTE_CODE,config:CONFIG})});$("#prMsg").textContent="Configuración guardada y publicada."}catch(e){$("#prMsg").textContent="Guardada en este computador; no se pudo publicar en el registro central."}}
+    else $("#prMsg").textContent="Configuración guardada en este computador.";
+    if(profile){refreshWorld();renderHud()}};
+  $("#resetPr").onclick=()=>{PRICE_META.forEach(p=>{$("#pr_"+p[0]).value=p[3]});$("#prMsg").textContent="Valores de referencia cargados. Pulsa «Guardar configuración» para aplicarlos."};
+  const del=$("#delAll");let armed=0;del.onclick=async()=>{if(!armed){armed=1;del.textContent="Confirmar: borrar todos los registros";setTimeout(()=>{armed=0;del.textContent="Borrar registros"},6000);return}
+    del.disabled=true;del.textContent="Borrando…";
+    if(DOC.src==="central"){try{await fetch(SHEET_WEBAPP_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({tipo:"reset",secret:DOCENTE_CODE})});await new Promise(r=>setTimeout(r,1500))}catch(e){}}
+    else{LOG=[];saveLog()}
+    await loadRecords();renderPanel();toast("Registros borrados")};
+}
+// ---------- exportación ----------
+function csv(rows){const cell=v=>{if(v===null||v===undefined)return "";let s=typeof v==="number"?String(Math.round(v*1e4)/1e4).replace(".",","):String(v);return /[;"\n\r]/.test(s)?`"${s.replace(/"/g,'""')}"`:s};
+  return rows.map(r=>r.map(cell).join(";")).join("\r\n")}
+const stamp=()=>{const d=new Date(),p=x=>String(x).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`};
+async function saveFile(name,text){const data="﻿"+text;
+  try{if(window.claude&&typeof window.claude.use==="function"){const d=await window.claude.use("downloads");if(d){try{await d.save({filename:name,data});toast("Archivo exportado");}catch(e){if(e&&e.code!=="declined")toast("No se pudo exportar el archivo en esta vista.")}return}}}catch(e){}
+  try{const blob=new Blob([data],{type:"text/csv;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast("Archivo exportado")}catch(e){toast("No se pudo exportar el archivo.")}}
+function exportEst(A){const head=["Nombre","Código","Compañero(s)","Grupo",...MISSIONS.map((m,i)=>`T${i+1} ${m.product} (estrellas)`),"Turnos con al menos 1 estrella","Estrellas (de 18)","Puntos","Lotes producidos","Predicciones acertadas","% aciertos de predicción","Tiempo activo (min)","Primera actividad","Última actividad"];
+  saveFile(`NectarLab_resumen_estudiantes_${stamp()}.csv`,csv([head,...A.students.map(s=>[s.nombre,s.codigo,[...s.companeros].join(", "),s.grupo,...MISSIONS.map(m=>s.best[m.id]?s.best[m.id].s:""),s.done,s.stars,s.pts,s.att,s.pred,s.att?Math.round(s.pred/s.att*100):0,Math.round(s.time/60*10)/10,fdate(s.first),fdate(s.last)])]))}
+function exportTur(A){const head=["Turno","Producto","Equipos","Lotes producidos","% lotes retenidos","Intentos promedio hasta liberar","Tiempo promedio hasta liberar (min)","Estrellas promedio (mejor por equipo)","% predicciones acertadas","Falla más frecuente"];
+  saveFile(`NectarLab_dificultad_turnos_${stamp()}.csv`,csv([head,...A.turns.map((t,i)=>[`T${i+1}`,t.m.product,t.teams,t.att,Math.round(t.rej*100),t.triesToOk===null?"":t.triesToOk,t.timeToOk===null?"":Math.round(t.timeToOk/6)/10,t.avgBest===null?"":t.avgBest,Math.round(t.pred*100),t.top])]))}
+function exportDet(A){saveFile(`NectarLab_registro_detallado_${stamp()}.csv`,csv([COLS,...DOC.rows.map(r=>COLS.map(c=>c==="fecha"?fdate(r[c]):r[c]))]))}
+
+// ================== BUCLE ==================
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=w<h?80:68;camera.updateProjectionMatrix()}
+addEventListener("resize",resize);resize();
+const clock=new THREE.Clock();let T=0;
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+function frame(){
+  const dt=Math.min(clock.getDelta(),0.05);T+=dt;
+  if(tween){tween.t+=dt/tween.dur;const e=tween.t>=1?1:1-Math.pow(1-tween.t,3);
+    ["x","z","yaw","pitch"].forEach(k=>player[k]=tween.from[k]+(tween.to[k]-tween.from[k])*e);
+    if(tween.t>=1){const k=tween.after,o=tween.open;tween=null;if(o&&k&&k!=="pack"&&!orbit)openStation(k)}}
+  else if(!uiOpen()&&!orbit){
+    let f=(keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0)-joy.y;
+    let s=(keys.KeyD?1:0)-(keys.KeyA?1:0)+joy.x;
+    if(keys.ArrowLeft)player.yaw+=1.8*dt;if(keys.ArrowRight)player.yaw-=1.8*dt;
+    const L=Math.hypot(f,s);if(L>1){f/=L;s/=L}
+    const sp=3.4*dt;const sy=Math.sin(player.yaw),cy=Math.cos(player.yaw);
+    player.x+=(-sy*f+cy*s)*sp;player.z+=(-cy*f-sy*s)*sp;collide();
+  }
+  if(orbit){orbit.idle+=dt;if(orbit.idle>2.5&&!reduce)orbit.a+=dt*0.25;const lim=1.45;orbit.a=orbit.a0+Math.max(-lim,Math.min(lim,orbit.a-orbit.a0));
+    if(Math.abs(orbit.a-orbit.a0)>=lim-1e-3&&orbit.idle>2.5)orbit.a0dir=(orbit.a0dir||1)*-1;
+    const ce=Math.cos(orbit.e);camera.position.set(orbit.c.x+orbit.r*ce*Math.sin(orbit.a),orbit.c.y+orbit.r*Math.sin(orbit.e)+0.3,orbit.c.z+orbit.r*ce*Math.cos(orbit.a));camera.lookAt(orbit.c)}
+  const bob=(!tween&&(Math.abs(joy.y)+Math.abs(joy.x)>0.1||keys.KeyW||keys.KeyS||keys.ArrowUp||keys.ArrowDown||keys.KeyA||keys.KeyD))&&!reduce?Math.sin(T*9)*0.025:0;
+  if(!orbit){camera.position.set(player.x,EYE+bob,player.z);camera.rotation.set(player.pitch,player.yaw,0)}
+  // objetos animados
+  const prod=producing>0;if(prod)producing-=dt;
+  agitator.rotation.y+=dt*(prod?14:2.5);carousel.rotation.y+=dt*(prod?3:0.25);
+  ORDER.forEach(k=>{const mk=markers[k];if(mk.g.visible){mk.gem.position.y=(ST[k].qa?2.3:3.85)+Math.sin(T*2.4)*0.12;mk.gem.rotation.y+=dt*1.5;mk.ring.material.opacity=0.55+0.3*Math.sin(T*3)}});
+  parts.forEach((p,i)=>{p.visible=prod;if(prod){const u=((T*0.11)+i/parts.length)%1;flowCurve.getPointAt(u,p.position)}});
+  if(chartDisc)chartDisc.rotation.z-=dt*(prod?0.6:0.02);if(prod)chainMat.map.offset.x-=dt*1.6;
+  bottles.forEach(b=>{if(prod){b.position.x+=dt*0.9;if(b.position.x>19.2)b.position.x-=6}});
+  steam.forEach(s=>{s.t+=dt*(prod?0.7:0.25);if(s.t>1)s.t-=1;s.m.position.set(-0.2+Math.sin(s.t*6)*0.08,0.15+s.t*0.9,-5.25);s.m.scale.setScalar(0.25+s.t*0.9);s.m.material.opacity=(1-s.t)*(prod?0.45:0.12)});
+  // proximidad
+  const n=(tween||orbit)?null:nearest();if(n!==near){near=n;const b=$("#operate");if(near&&!uiOpen()){b.hidden=false;b.innerHTML=`Operar: ${ST[near].name}<kbd>E</kbd>`}else b.hidden=true}
+  if(near&&(uiOpen()||orbit))$("#operate").hidden=true;else if(near)$("#operate").hidden=false;
+  renderer.render(scene,camera);requestAnimationFrame(frame);
+}
+$("#operate").onclick=()=>{if(near)openStation(near)};
+
+// arranque
+document.querySelectorAll("img.usco").forEach(i=>{i.src=USCO_LOGO});
+refreshWorld();renderHud();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>refreshWorld());
+$("#boot").hidden=true;
+requestAnimationFrame(frame);
+if(profile)showBrief(M());else showReg();
+fetchConfig();flush();
+})();
+</script>
+
+<script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}</script>
+</body>
+</html>
