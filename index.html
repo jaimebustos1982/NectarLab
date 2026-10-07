@@ -479,7 +479,7 @@ const ST={
 const ORDER=["rec","mix","reg","heat","hold","pack","qa"];
 
 // ================== CONFIGURACIÓN DE DESPLIEGUE ==================
-const VERSION="2026.10.07-c";
+const VERSION="2026.10.07-d";
 const DOCENTE_CODE="NECTAR-2026";   // debe coincidir con SECRET en el Apps Script
 const SHEET_WEBAPP_URL="https://script.google.com/macros/s/AKfycbwDEez5hrp3lnKdyLu_2ruuErlNs9bdxdhHKPzdHqepkQLqikyLIX7kSioJ_6YVb83X/exec";          // pegar aquí la URL /exec del Apps Script «Registro NectarLab»
 const DOCENTE_NOMBRE="Ing. Jaime Daniel Bustos, D.Sc.";
@@ -663,6 +663,24 @@ function textPlane(w,h,px,draw,parent,pos,rotY=0){
 function signDraw(title,sub){return (x,W,H)=>{x.fillStyle="#14302A";x.fillRect(0,0,W,H);x.fillStyle="#E29B00";x.fillRect(0,H-10,W,10);
   x.fillStyle="#fff";x.font=`800 ${H*0.34}px Unbounded, Arial Black, sans-serif`;x.textAlign="center";x.textBaseline="middle";x.fillText(title,W/2,H*0.4);
   if(sub){x.fillStyle="#A9C4BB";x.font=`700 ${H*0.17}px Atkinson Hyperlegible, sans-serif`;x.fillText(sub,W/2,H*0.74)}}}
+const SIGNS=[];
+function fitFont(x,txt,maxW,size,weight,family){let s=Math.round(size);x.font=`${weight} ${s}px ${family}`;while(s>8&&x.measureText(txt).width>maxW){s--;x.font=`${weight} ${s}px ${family}`}return s}
+function rrect(x,X,Y,W,H,r){x.beginPath();x.moveTo(X+r,Y);x.lineTo(X+W-r,Y);x.quadraticCurveTo(X+W,Y,X+W,Y+r);x.lineTo(X+W,Y+H-r);x.quadraticCurveTo(X+W,Y+H,X+W-r,Y+H);x.lineTo(X+r,Y+H);x.quadraticCurveTo(X,Y+H,X,Y+H-r);x.lineTo(X,Y+r);x.quadraticCurveTo(X,Y,X+r,Y);x.closePath()}
+const F_DISP="Unbounded, 'Arial Black', sans-serif",F_BODY="'Atkinson Hyperlegible', Arial, sans-serif";
+function signBg(x,W,H){const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,"#1E4840");g.addColorStop(1,"#0F271F");x.fillStyle=g;x.fillRect(0,0,W,H);
+  x.fillStyle="rgba(255,255,255,.07)";x.fillRect(0,0,W,Math.max(2,H*0.025));x.fillStyle="#E29B00";x.fillRect(0,H-H*0.075,W,H*0.075)}
+function stationDraw(num,title,sub){return (x,W,H)=>{signBg(x,W,H);
+  const r=H*0.29,cx=H*0.47,cy=H*0.46;x.fillStyle="#E29B00";x.beginPath();x.arc(cx,cy,r,0,Math.PI*2);x.fill();
+  x.strokeStyle="rgba(255,255,255,.35)";x.lineWidth=H*0.02;x.beginPath();x.arc(cx,cy,r+H*0.035,0,Math.PI*2);x.stroke();
+  x.fillStyle="#14302A";x.textAlign="center";x.textBaseline="middle";x.font=`800 ${Math.round(H*0.3)}px ${F_DISP}`;x.fillText(num,cx,cy+H*0.015);
+  const left=cx+r+H*0.28,maxW=W-left-H*0.28;x.textAlign="left";
+  x.fillStyle="#FFFFFF";fitFont(x,title,maxW,H*0.27,800,F_DISP);x.fillText(title,left,H*0.36);
+  x.fillStyle="#9FD3C7";fitFont(x,sub,maxW,H*0.16,700,F_BODY);x.fillText(sub,left,H*0.69)}}
+// placa con marco de acero, visible por ambas caras
+function panelSign(parent,w,h,pos,rotY,draw,res){const g=new THREE.Group();g.position.set(...pos);g.rotation.y=rotY||0;parent.add(g);
+  box(w+0.09,h+0.09,0.045,mat.satin,0,0,-0.028,g,0.02);
+  const a=textPlane(w,h,res||1400,draw,g,[0,0,0.0]);const b=textPlane(w,h,res||1400,draw,g,[0,0,-0.056],Math.PI);
+  SIGNS.push(a,b);return {g,a,b}}
 
 // ================== NAVE ==================
 const fl=mesh(new THREE.PlaneGeometry(42,22),mat.floor,0,0,0);fl.rotation.x=-Math.PI/2;fl.receiveShadow=true;
@@ -683,13 +701,19 @@ box(40,0.08,0.5,mat.satin,0,5.25,-6.6);box(40,0.15,0.03,mat.satin,0,5.32,-6.36);
 for(const dz of [-0.12,0,0.12])rod([-20,5.33,-6.6+dz],[20,5.33,-6.6+dz],0.025,dz?mat.black:mat.dark);
 // línea de servicios en pared (agua helada, agua caliente, vapor, aire)
 [[4.6,0.06,mat.clad],[4.85,0.045,mat.blue],[5.05,0.035,mat.yellow]].forEach(([y,r,m])=>{rod([-19.8,y,-9.6],[19.8,y,-9.6],r,m);for(let x=-18;x<=18;x+=4)box(0.06,0.25,0.4,mat.dark,x,y+0.1,-9.8)});
-textPlane(12,1.9,1400,(x,W,H)=>{x.fillStyle="#14302A";x.fillRect(0,0,W,H);x.fillStyle="#E29B00";x.fillRect(0,H-12,W,12);x.textAlign="center";x.textBaseline="middle";
-  x.fillStyle="#fff";x.font=`800 ${H*0.3}px Unbounded, Arial Black, sans-serif`;x.fillText("NECTARLAB",W/2,H*0.3);
-  x.fillStyle="#F2B42A";x.font=`700 ${H*0.13}px Unbounded, Arial Black, sans-serif`;x.fillText("PLANTA VIRTUAL DE PROCESOS AGROINDUSTRIALES",W/2,H*0.58);
-  x.fillStyle="#A9C4BB";x.font=`700 ${H*0.105}px Atkinson Hyperlegible, sans-serif`;x.fillText("Programa de Ingeniería Agroindustrial · Universidad Surcolombiana",W/2,H*0.78)},scene,[1,4.5,9.98],Math.PI);
-(function(){const tex=new THREE.TextureLoader().load(USCO_LOGO);tex.encoding=THREE.sRGBEncoding;tex.anisotropy=ANISO;
-  box(2.0,2.05,0.05,mat.white,8.4,4.5,9.99,scene,0.04);
-  const sm=new THREE.Mesh(new THREE.PlaneGeometry(1.7,1.76),new THREE.MeshBasicMaterial({map:tex,transparent:true,toneMapped:false}));sm.position.set(8.4,4.5,9.955);sm.rotation.y=Math.PI;scene.add(sm)})();
+// letrero principal: adelantado respecto a las columnas, con escudo integrado
+const sealImg=new Image();
+const wallSign=panelSign(scene,11.5,2.3,[2.3,4.35,9.5],Math.PI,(x,W,H)=>{signBg(x,W,H);
+  const t=H*0.74,tx=H*0.13,ty=(H*0.925-t)/2;x.fillStyle="#FFFFFF";rrect(x,tx,ty,t,t,H*0.08);x.fill();
+  if(sealImg.complete&&sealImg.naturalWidth){const s=t*0.82,ar=sealImg.naturalWidth/sealImg.naturalHeight;x.drawImage(sealImg,tx+(t-s*ar)/2,ty+(t-s)/2,s*ar,s)}
+  const left=tx+t+H*0.16,maxW=W-left-H*0.2;x.textAlign="left";x.textBaseline="alphabetic";
+  x.fillStyle="#FFFFFF";fitFont(x,"NECTARLAB",maxW,H*0.34,800,F_DISP);x.fillText("NECTARLAB",left,H*0.42);
+  x.fillStyle="#F2B42A";fitFont(x,"PLANTA VIRTUAL DE PROCESOS AGROINDUSTRIALES",maxW,H*0.1,700,F_DISP);x.fillText("PLANTA VIRTUAL DE PROCESOS AGROINDUSTRIALES",left,H*0.6);
+  x.fillStyle="rgba(255,255,255,.18)";x.fillRect(left,H*0.66,maxW,Math.max(2,H*0.006));
+  x.fillStyle="#9FD3C7";fitFont(x,"Programa de Ingeniería Agroindustrial · Universidad Surcolombiana",maxW,H*0.085,700,F_BODY);x.fillText("Programa de Ingeniería Agroindustrial · Universidad Surcolombiana",left,H*0.78)},2400);
+sealImg.onload=()=>{wallSign.a.redraw();wallSign.b.redraw()};sealImg.src=USCO_LOGO;
+for(const dx of [-4.8,-1.6,1.6,4.8])for(const dy of [-0.8,0.8])rod([2.3+dx,4.35+dy,9.53],[2.3+dx,4.35+dy,9.99],0.025,mat.satin);
+for(const dx of [-3.6,3.6]){rod([2.3+dx,5.9,9.95],[2.3+dx,5.9,9.2],0.02,mat.dark);const lh=cyl(0.09,0.18,mat.dark,2.3+dx,5.86,9.18,scene,16);lh.rotation.x=-0.7}
 for(const z of [-5,0,5]){const w=mesh(new THREE.PlaneGeometry(3.6,1.6),new THREE.MeshBasicMaterial({color:0xEAF6FF}),19.98,3.6,z);w.rotation.y=-Math.PI/2;
   const fr=box(0.06,1.7,3.7,mat.satin,19.97,3.6,z);box(0.06,0.04,3.6,mat.satin,19.96,3.6,z)}
 // lavamanos sanitario junto a la entrada
@@ -697,8 +721,13 @@ for(const z of [-5,0,5]){const w=mesh(new THREE.PlaneGeometry(3.6,1.6),new THREE
 
 // ================== GRUPOS ==================
 const G={};ORDER.forEach(k=>{G[k]=new THREE.Group();G[k].userData.st=k;scene.add(G[k])});
-function hangSign(k,x,z,w=3.2){const g=G[k];rod([x-w*0.4,6.6,z],[x-w*0.4,4.62,z],0.01,mat.dark,g);rod([x+w*0.4,6.6,z],[x+w*0.4,4.62,z],0.01,mat.dark,g);
-  textPlane(w,0.62,700,signDraw(ST[k].name.toUpperCase()),g,[x,4.35,z])}
+const STATION_SIGN={rec:["1","Cava y recepción de pulpa","Cuarto frío a 4 °C · recepción de tambores"],mix:["2","Tanque de formulación","TK-101 · 6 m³ · agitador de turbina"],
+ reg:["3","Regenerador de placas","IC-201 · sección de regeneración · 5.000 L/h"],heat:["4","Calentador y caldera","IC-202 · vapor de caldera de 20 BHP"],
+ hold:["5","Tubo de sostenimiento","Serpentín sanitario · válvula de desviación"],pack:["6","Enfriamiento y envasado","IC-203 · llenadora rotativa de PET"],
+ qa:["7","Laboratorio de calidad","Refractometría · pH · acidez titulable"]};
+function hangSign(k,x,z){const g=G[k];const w=3.7,h=0.9,y=4.15,s=STATION_SIGN[k];
+  for(const dx of [-w*0.36,w*0.36]){rod([x+dx,6.4,z],[x+dx,y+h/2+0.05,z],0.009,mat.satin,g);box(0.07,0.05,0.07,mat.satin,x+dx,y+h/2+0.06,z,g,0.01);box(0.12,0.03,0.12,mat.satin,x+dx,6.39,z,g)}
+  panelSign(g,w,h,[x,y,z],0,stationDraw(s[0],s[1],s[2]),1600)}
 function nameplate(p,pos,rotY,txt){textPlane(0.32,0.12,256,(x,W,H)=>{x.fillStyle="#c9cfd0";x.fillRect(0,0,W,H);x.strokeStyle="#666";x.lineWidth=3;x.strokeRect(2,2,W-4,H-4);x.fillStyle="#222";x.font="700 22px sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText(txt,W/2,H/2)},p,pos,rotY)}
 
 // ---------- CAVA Y RECEPCIÓN ----------
@@ -964,7 +993,7 @@ fl.receiveShadow=true;
 // Marcadores de objetivo
 const markers={};
 ORDER.forEach(k=>{const s=ST[k];const g=new THREE.Group();
-  const gem=new THREE.Mesh(new THREE.OctahedronGeometry(0.2),new THREE.MeshBasicMaterial({color:0xE29B00}));gem.position.y=s.qa?2.3:3.85;g.add(gem);
+  const gem=new THREE.Mesh(new THREE.OctahedronGeometry(0.2),new THREE.MeshBasicMaterial({color:0xE29B00}));gem.position.y=s.qa?2.3:3.2;g.add(gem);
   const ring=new THREE.Mesh(new THREE.RingGeometry(0.75,0.9,40),new THREE.MeshBasicMaterial({color:0xE29B00,transparent:true,opacity:.8,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.set(0,0.02,s.qa?0:1.0);g.add(ring);
   g.position.set(s.x,0,s.qa?7.4:-2.9);g.visible=false;scene.add(g);markers[k]={g,gem,ring}});
 
@@ -1410,7 +1439,7 @@ function frame(){
   // objetos animados
   const prod=producing>0;if(prod)producing-=dt;
   agitator.rotation.y+=dt*(prod?14:2.5);carousel.rotation.y+=dt*(prod?3:0.25);
-  ORDER.forEach(k=>{const mk=markers[k];if(mk.g.visible){mk.gem.position.y=(ST[k].qa?2.3:3.85)+Math.sin(T*2.4)*0.12;mk.gem.rotation.y+=dt*1.5;mk.ring.material.opacity=0.55+0.3*Math.sin(T*3)}});
+  ORDER.forEach(k=>{const mk=markers[k];if(mk.g.visible){mk.gem.position.y=(ST[k].qa?2.3:3.2)+Math.sin(T*2.4)*0.12;mk.gem.rotation.y+=dt*1.5;mk.ring.material.opacity=0.55+0.3*Math.sin(T*3)}});
   parts.forEach((p,i)=>{p.visible=prod;if(prod){const u=((T*0.11)+i/parts.length)%1;flowCurve.getPointAt(u,p.position)}});
   if(chartDisc)chartDisc.rotation.z-=dt*(prod?0.6:0.02);if(prod)chainMat.map.offset.x-=dt*1.6;
   bottles.forEach(b=>{if(prod){b.position.x+=dt*0.9;if(b.position.x>19.2)b.position.x-=6}});
@@ -1425,7 +1454,7 @@ $("#operate").onclick=()=>{if(near)openStation(near)};
 // arranque
 document.querySelectorAll("img.usco").forEach(i=>{i.src=USCO_LOGO});
 refreshWorld();renderHud();
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>refreshWorld());
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{refreshWorld();SIGNS.forEach(s=>s.redraw())});
 $("#boot").hidden=true;
 requestAnimationFrame(frame);
 if(profile)showBrief(M());else showReg();

@@ -1,6 +1,6 @@
 // NectarLab · service worker
 // Al publicar una versión nueva de index.html, cambia CACHE_NAME (por ejemplo, de -a a -b).
-const CACHE_NAME = "nectarlab-2026.10.07-c";
+const CACHE_NAME = "nectarlab-2026.10.07-d";
 const CORE = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png"];
 const CDN = [
   "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js",
