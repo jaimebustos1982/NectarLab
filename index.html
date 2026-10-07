@@ -214,6 +214,11 @@ table.dt{font-size:12.5px}table.dt td,table.dt th{white-space:nowrap}table.dt td
 .chkl{display:flex;gap:8px;align-items:center;font-size:13.5px}
 .dangerb{color:var(--bad);border-color:var(--bad);align-self:flex-start}
 .doc footer{text-align:center;padding:6px 0 18px}
+.tour{position:fixed;z-index:5;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(760px,calc(100% - 24px));background:rgba(248,251,248,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:16px;padding:14px 18px;box-shadow:0 18px 50px rgba(20,48,42,.28);display:flex;flex-direction:column;gap:6px}
+.tour h3{font-size:18px}.tour p{margin:0;font-size:14px;max-width:72ch}
+.tour-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.tour .dots{display:flex;gap:5px}.tour .dots i{width:9px;height:9px;border-radius:50%;background:var(--line)}.tour .dots i.done{background:var(--good)}.tour .dots i.on{background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.tour .go{padding:9px 16px;font-size:13px}
 .boot{position:fixed;inset:0;display:grid;place-items:center;z-index:8;background:var(--bg);font-family:var(--f-display);font-size:15px;color:var(--muted);text-align:center;padding:0 16px}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 </style>
@@ -227,7 +232,7 @@ table.dt{font-size:12.5px}table.dt td,table.dt th{white-space:nowrap}table.dt td
   <div class="pill brand"><img class="usco lg" alt="Universidad Surcolombiana" width="30" height="31"><span style="min-width:0"><b>NectarLab</b><span>Ingeniería Agroindustrial · USCO</span></span></div>
   <button class="pill brand" id="bMission" type="button" title="Órdenes de producción"><span style="min-width:0"><b id="mTitle">Turno 1</b><span id="mSub"></span></span></button>
   <div class="pill score"><div><b id="hPts">0</b><span>Puntos</span></div><div><b id="hSt">0/18</b><span>Estrellas</span></div><div><b id="hRank" style="font-family:var(--f-body);color:var(--ink)">Practicante</b><span>Cargo</span></div></div>
-  <div class="tools"><button class="tb" id="bEq" type="button">Equipos</button><button class="tb" id="bMan" type="button">Manual</button><button class="tb team" id="bTeam" type="button">Equipo</button></div>
+  <div class="tools"><button class="tb" id="bEq" type="button">Equipos</button><button class="tb" id="bMan" type="button">Manual</button><button class="tb" id="bQ" type="button" title="Calidad gráfica">Calidad</button><button class="tb team" id="bTeam" type="button">Equipo</button></div>
   <div class="obj"><div class="pill" id="obj"></div></div>
 </header>
 
@@ -251,6 +256,11 @@ table.dt{font-size:12.5px}table.dt td,table.dt th{white-space:nowrap}table.dt td
     </section>
     <form class="reg-form" id="regForm" novalidate></form>
   </div>
+</div>
+<div class="tour" id="tour" hidden role="status" aria-live="polite">
+  <div class="tour-top"><span class="eyebrow" id="tourStep"></span><span class="dots" id="tourDots"></span></div>
+  <h3 id="tourTitle"></h3><p id="tourText"></p>
+  <div class="row"><button class="ghost" id="tourSkip" type="button">Saltar al informe</button><button class="go" id="tourNext" type="button">Siguiente equipo</button></div>
 </div>
 <div class="doc" id="doc" hidden></div>
 <div class="toast" id="toast" role="status"></div>
@@ -278,6 +288,8 @@ const FR={
 };
 // Precios unitarios (COP). El docente puede cambiarlos desde el panel docente.
 const PRICE_META=[
+  ["fruta_maracuya","Maracuyá fresco (fruta)","$/kg",5858,"SIPSA-DANE, Surabastos Neiva, promedio semana 5–11 sep 2026"],
+  ["hipoclorito","Hipoclorito de sodio al 13 %","$/L",3500,"Referencia docente: ajustar con cotización"],
   ["pulpa_maracuya","Pulpa de maracuyá","$/kg",12000,"Referencia docente: ajustar con cotización"],
   ["pulpa_mango_A","Pulpa de mango, lote A (cosecha temprana)","$/kg",6000,"Referencia docente: ajustar con cotización"],
   ["pulpa_mango_B","Pulpa de mango, lote B (estándar)","$/kg",8000,"Referencia docente: ajustar con cotización"],
@@ -354,6 +366,43 @@ function acidFor(target,batch,pulpAcid){return Math.max(0,Math.ceil((target*batc
 
 const BATCH=5000,FLOW=5000;
 const MISSIONS=[
+{id:"m0",kind:"pulpa",product:"Pulpa de maracuyá",sub:"De la finca a la cava",fruit:"maracuya",client:"Línea de néctares (orden interna)",
+ brief:"Llegó un camión con maracuyá amarillo parcialmente maduro desde el norte del Huila. La línea de néctares necesita al menos 800 kg de pulpa refinada para su próximo lote. Recibe la fruta justa, clasifícala, desinféctala, almacénala dos días y despúlpala sin dañar la calidad.",
+ concept:"Balance de materia con mermas en serie: fruta recibida → descarte en selección → pérdidas en almacenamiento → rendimiento de despulpado. Además, dosificación de desinfectante por dilución.",
+ order:[["Producto","Pulpa de maracuyá refinada"],["Pulpa requerida","≥ 800 kg"],["Sobrante máximo","5 % (≤ 840 kg)"],["Cloro en el agua de lavado","100 – 200 ppm"],["Pulpa","conforme Tabla 1"]],
+ lot:[["Maracuyá amarillo","jugo 13,5 °Bx · acidez 3,4 %"],["Canastillas","20 kg de fruta cada una"]],
+ pulpLots:[["Jugo del lote de maracuyá fresco","maracuya",13.5,3.4]],
+ priceKeys:["fruta_maracuya","hipoclorito","agua"],extraReq:["fsel"],
+ stationNotes:{
+  frec:"Lote de maracuyá amarillo parcialmente maduro, en canastillas de 20 kg. Calcula cuánta fruta recibir para obtener la pulpa que pide la orden, teniendo en cuenta todas las mermas de la línea.",
+  fsel:"Muestra tomada al azar del lote: de 50 frutos, 4 presentan daño mecánico o pudrición. La mesa de selección retira esa misma proporción del lote.",
+  fwash:"Tanque de inmersión con burbujeo de 2.000 L de agua y enjuague por aspersión. Desinfectante: hipoclorito de sodio comercial al 13 %. Mantén el pH del agua entre 6 y 7 y de 3 a 10 minutos de contacto.",
+  fstore:"La fruta lavada espera 2 días antes de despulparse. Fija la temperatura del cuarto según la ficha poscosecha del maracuyá (consulta el manual).",
+  fpulp:"Despulpadora de paletas con refinadora. El tamiz define cuánta pulpa sale y qué tanto se fracturan las semillas."},
+ inputs:[{k:"fruta",st:"frec",l:"Fruta fresca a recibir",u:"kg",min:0,max:5000,step:10,def:2000},
+  {k:"cloro",st:"fwash",l:"Hipoclorito de sodio al 13 % a dosificar",u:"mL",min:0,max:6000,step:10,def:800},
+  {k:"Tst",st:"fstore",l:"Temperatura del cuarto de fruta fresca",u:"°C",min:0,max:20,step:0.5,def:4},
+  {k:"tamiz",st:"fpulp",l:"Tamiz de la refinadora",type:"sel",opts:[["3.0","3,0 mm (rendimiento 35 %)"],["1.5","1,5 mm (rendimiento 32 %)"],["0.8","0,8 mm (rendimiento 28 %)"]],def:"3.0"}],
+ fixed:{},
+ predict:{l:"Tu predicción: pulpa refinada obtenida",u:"kg",tol:0.02,get:r=>r.pulp},
+ spec:p=>null,
+ evaluate(p){const DESC=4/50,TANK=2000,CL=13;const T=p.Tst;
+  const lossSt=T<5?0.15:T<7?0.05:T<=10?0.01:T<=15?0.03:0.06;
+  const Y={"3.0":0.35,"1.5":0.32,"0.8":0.28}[p.tamiz];
+  const fruta=p.fruta,desc=fruta*DESC,sel=fruta-desc,perd=sel*lossSt,lav=sel-perd,pulp=lav*Y,res=lav-pulp;
+  const ppm=p.cloro*CL*10/TANK;
+  const costItems=[["Maracuyá fresco",fruta,PR.fruta_maracuya,"kg"],["Hipoclorito de sodio al 13 %",p.cloro/1000,PR.hipoclorito,"L"],["Agua del tanque de lavado",TANK,PR.agua,"kg"]];
+  const raw=costItems.reduce((a,c)=>a+c[1]*c[2],0);
+  const r={kind:"pulpa",fruta,desc,sel,perd,lav,pulp,res,ppm,T,lossSt,Y,tamiz:p.tamiz,costItems,raw,costKg:pulp>0?raw/pulp:0};
+  const checks=[
+   {cat:"seg",label:"Desinfección del agua de lavado: 100 – 200 ppm de cloro",ok:ppm>=100-1e-9&&ppm<=200+1e-9,d:fmt(ppm,0)+" ppm",h:"Dosis (mL) = V (L) × ppm ÷ (10 × % de cloro del producto). Por debajo de 100 ppm no se asegura la desinfección; por encima de 200 ppm quedan residuos y se corroe el equipo."},
+   {cat:"seg",label:"Almacenamiento de la fruta a 7 – 10 °C (sin daño por frío)",ok:T>=7&&T<=10,d:fmt(T,1)+" °C · merma "+fmt(lossSt*100,0)+" %",h:T<7?"El maracuyá sufre daño por frío: pardeamiento, picado y pudriciones. Revisa la ficha poscosecha en el manual.":"Por encima de 10 °C la fruta respira más rápido, se arruga y pierde peso."},
+   {cat:"norma",label:"Pulpa conforme a la Tabla 1 (maracuyá): °Brix ≥ 12,0 y acidez ≥ 2,5 %",ok:true,d:"13,5 °Bx · 3,4 %",h:""},
+   {cat:"cliente",label:"Pulpa suficiente para la orden: ≥ 800 kg",ok:pulp>=800-1e-9,d:fmt(pulp,0)+" kg",h:"Recalcula la fruta a recibir: divide la pulpa requerida entre el producto de las fracciones que sobreviven a cada etapa."},
+   {cat:"cliente",label:"Pulpa sin fragmentos de semilla",ok:p.tamiz!=="3.0",d:"tamiz "+p.tamiz.replace(".",",")+" mm",h:"El tamiz de 3,0 mm deja pasar semilla fracturada: aparecen puntos negros y sabor amargo. El mayor rendimiento no sirve si la pulpa queda defectuosa."},
+   {cat:"efic",label:"Sobrante de pulpa ≤ 5 % (máximo 840 kg)",ok:pulp<=840+1e-9,d:fmt(pulp,0)+" kg",h:"Recibiste más fruta de la necesaria: el sobrante inmoviliza capital y espacio en la cava."},
+   {cat:"efic",label:"Tamiz de mayor rendimiento sin defectos",ok:p.tamiz==="1.5",d:"rendimiento "+fmt(Y*100,0)+" %",h:"El tamiz de 0,8 mm deja buena pulpa pero pierde rendimiento."}];
+  return {r,checks}}},
 {id:"m1",product:"Néctar de maracuyá",sub:"Primer pedido",fruit:"maracuya",client:"Cafeterías escolares del Huila",
  brief:"Llegó tu primer pedido: un lote de néctar de maracuyá. La pulpa de maracuyá que hay en la cava llegó con menos sólidos solubles de lo habitual. Formula el néctar para que cumpla la Resolución 3929 de 2013 y lo que pide el cliente, al menor costo de materias primas posible.",
  concept:"Balance de materia de sólidos solubles. La Tabla 8 fija dos mínimos para el néctar: el porcentaje de pulpa y los sólidos solubles que aporta la fruta.",
@@ -468,7 +517,12 @@ MISSIONS.forEach(m=>{m.title=m.product});
 
 // ================== EQUIPOS ==================
 const ST={
- rec:{name:"Cava y recepción de pulpa",x:-15,info:"Cuarto frío a 4 °C donde se reciben los tambores de pulpa. Cada lote llega con su certificado de °Brix y acidez titulable. La Tabla 1 de la Resolución 3929 fija los mínimos de la pulpa; la Tabla 8, los del néctar que vas a producir con ella."},
+ frec:{name:"Recepción y pesaje de fruta",x:-40.5,info:"Muelle de recepción con báscula de plataforma de 3 t. La fruta llega en canastillas plásticas de 20 kg; se pesa, se muestrea y se mide °Brix y acidez del jugo antes de aceptar el lote."},
+ fsel:{name:"Selección y clasificación",x:-35.5,info:"Mesa de rodillos con iluminación de inspección. Los operarios retiran la fruta con daño mecánico, pudrición o sin madurez de proceso; el descarte cae a canecas por canaletas laterales."},
+ fwash:{name:"Lavado y desinfección",x:-30.5,info:"Tanque de inmersión de 2.000 L con burbujeo de aire, seguido de un elevador de rodillos con enjuague por aspersión. La bomba dosificadora agrega hipoclorito de sodio al agua."},
+ fstore:{name:"Cuarto de fruta fresca",x:-26,info:"Cámara refrigerada con control de temperatura y humedad relativa donde la fruta lavada espera su turno de despulpado. Una temperatura equivocada causa daño por frío o pérdidas por respiración."},
+ fpulp:{name:"Despulpadora y refinadora",x:-22.4,info:"Despulpadora de paletas con tamiz cilíndrico y refinadora en serie. Separa la pulpa de la cáscara y la semilla; la pulpa pasa al tanque pulmón y se bombea a la cava de pulpa."},
+ rec:{name:"Cava de pulpa",x:-15,info:"Cuarto frío a 4 °C donde se reciben los tambores de pulpa. Cada lote llega con su certificado de °Brix y acidez titulable. La Tabla 1 de la Resolución 3929 fija los mínimos de la pulpa; la Tabla 8, los del néctar que vas a producir con ella."},
  mix:{name:"Tanque de formulación",x:-9,info:"Tanque TK-101 de 6 m³ en acero inoxidable, enchaquetado, con agitador de turbina. Se pesan pulpa, azúcar y ácido cítrico; el agua completa la masa del lote. Aquí se cierra el balance de materia."},
  reg:{name:"Regenerador de placas",x:-3.5,info:"Sección de regeneración del pasteurizador de placas (5.000 L/h). El néctar caliente que sale del tubo de sostenimiento precalienta el néctar frío que entra. La eficiencia ε es la fracción del salto térmico que se recupera sin gastar vapor."},
  heat:{name:"Calentador y caldera",x:1.5,info:"Sección de calentamiento con vapor saturado de la caldera pirotubular de 20 BHP, que entrega como máximo 300 kg/h de vapor. Lleva el néctar desde la temperatura de regeneración hasta la de pasteurización."},
@@ -476,10 +530,10 @@ const ST={
  pack:{name:"Enfriamiento y envasado",x:14,info:"Sección de enfriamiento con agua helada y llenadora rotativa de botellas PET. Aquí se ve si el lote se libera o se retiene."},
  qa:{name:"Laboratorio de calidad",x:10,qa:true,info:"Refractómetro, potenciómetro y titulación. Aquí registras tu cálculo en la bitácora y liberas la producción del lote."}
 };
-const ORDER=["rec","mix","reg","heat","hold","pack","qa"];
+const ORDER=["frec","fsel","fwash","fstore","fpulp","rec","mix","reg","heat","hold","pack","qa"];
 
 // ================== CONFIGURACIÓN DE DESPLIEGUE ==================
-const VERSION="2026.10.07-d";
+const VERSION="2026.10.07-g";
 const DOCENTE_CODE="NECTAR-2026";   // debe coincidir con SECRET en el Apps Script
 const SHEET_WEBAPP_URL="https://script.google.com/macros/s/AKfycbwDEez5hrp3lnKdyLu_2ruuErlNs9bdxdhHKPzdHqepkQLqikyLIX7kSioJ_6YVb83X/exec";          // pegar aquí la URL /exec del Apps Script «Registro NectarLab»
 const DOCENTE_NOMBRE="Ing. Jaime Daniel Bustos, D.Sc.";
@@ -498,11 +552,11 @@ let save={time:{total:0},attempts:{}};
 function loadTeam(){if(!profile){save={time:{total:0},attempts:{}};return}const k=teamKey(profile);PROG.teams[k]=PROG.teams[k]||{};save=PROG.teams[k];save.time=save.time||{total:0};save.attempts=save.attempts||{}}
 loadTeam();
 const persist=()=>LS.set("nectarlab-progreso",PROG);
-let cur=save._cur&&MISSIONS.find(m=>m.id===save._cur)?save._cur:"m1";
+let cur=save._cur&&MISSIONS.find(m=>m.id===save._cur)?save._cur:MISSIONS[0].id;
 let vals={};let visited=new Set();let lastR=null;let producing=0;let pred="";
 const M=()=>MISSIONS.find(x=>x.id===cur);
 function initVals(m){if(vals[m.id])return;vals[m.id]={};m.inputs.forEach(x=>vals[m.id][x.k]=(save[m.id]&&save[m.id].v&&save[m.id].v[x.k]!==undefined)?save[m.id].v[x.k]:x.def)}
-const required=m=>[...new Set(m.inputs.map(i=>i.st))];
+const required=m=>[...new Set([...m.inputs.map(i=>i.st),...(m.extraReq||[])])].sort((a,b)=>ORDER.indexOf(a)-ORDER.indexOf(b));
 const unlocked=i=>CONFIG.desbloquear||i===0||((save[MISSIONS[i-1].id]||{}).stars||0)>=1;
 
 // ---------- tiempo activo ----------
@@ -540,7 +594,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,LOWEND?1.25:1.75));
 renderer.outputEncoding=THREE.sRGBEncoding;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=0.95;
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-const scene=new THREE.Scene();scene.background=new THREE.Color(0xC9D3CE);scene.fog=new THREE.Fog(0xC9D3CE,30,62);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0xC9D3CE);scene.fog=new THREE.Fog(0xC9D3CE,32,78);
 const camera=new THREE.PerspectiveCamera(70,1,0.05,120);camera.rotation.order="YXZ";
 const ANISO=renderer.capabilities.getMaxAnisotropy();
 
@@ -587,7 +641,7 @@ const TX={
 
 scene.add(new THREE.HemisphereLight(0xf4fbf8,0x6a7d74,0.35));
 const sun=new THREE.DirectionalLight(0xfff3e2,0.95);sun.position.set(-9,17,11);sun.castShadow=true;
-sun.shadow.mapSize.set(LOWEND?1024:2048,LOWEND?1024:2048);Object.assign(sun.shadow.camera,{left:-22,right:22,top:14,bottom:-14,near:1,far:52});sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.02;sun.shadow.radius=3;scene.add(sun);
+sun.shadow.mapSize.set(LOWEND?1024:2048,LOWEND?1024:2048);Object.assign(sun.shadow.camera,{left:-46,right:22,top:16,bottom:-16,near:1,far:70});sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.02;sun.shadow.radius=3;scene.add(sun);
 
 const std=o=>new THREE.MeshStandardMaterial(o);
 const mat={
@@ -650,7 +704,7 @@ function gauge(p,pos,rotY,s=0.075,tex=mat.dial){const g=new THREE.Group();g.posi
   lathe([[0,-0.02],[s,-0.02],[s,0.025],[s*0.92,0.03],[0,0.03]],mat.satin,0,0,0,g,32).rotation.x=Math.PI/2;
   const f=mesh(new THREE.CircleGeometry(s*0.86,32),tex,0,0,0.031,g);const gl=mesh(new THREE.CircleGeometry(s*0.9,32),mat.glass,0,0,0.034,g);
   rod([0,-s,0],[0,-s-0.08,0],0.012,mat.satin,g);return g}
-function contact(x,z,w,d,op=0.55,p=scene){const m=mesh(new THREE.PlaneGeometry(w,d),mat.shadow.clone(),x,0.012,z,p);m.rotation.x=-Math.PI/2;m.material.opacity=op;m.renderOrder=1;return m}
+const SHADOW_MATS={};function contact(x,z,w,d,op=0.55,p=scene){const k=op.toFixed(2);const sm=SHADOW_MATS[k]||(SHADOW_MATS[k]=Object.assign(mat.shadow.clone(),{opacity:op}));const m=mesh(new THREE.PlaneGeometry(w,d),sm,x,0.012,z,p);m.rotation.x=-Math.PI/2;m.renderOrder=1;return m}
 function hexNut(pos,axis,p){const n=cyl(0.042,0.05,mat.satin,pos[0],pos[1],pos[2],p,6);n.quaternion.setFromUnitVectors(UP,new THREE.Vector3(...axis));return n}
 
 // Textos sobre canvas
@@ -679,8 +733,8 @@ function stationDraw(num,title,sub){return (x,W,H)=>{signBg(x,W,H);
 // placa con marco de acero, visible por ambas caras
 function panelSign(parent,w,h,pos,rotY,draw,res){const g=new THREE.Group();g.position.set(...pos);g.rotation.y=rotY||0;parent.add(g);
   box(w+0.09,h+0.09,0.045,mat.satin,0,0,-0.028,g,0.02);
-  const a=textPlane(w,h,res||1400,draw,g,[0,0,0.0]);const b=textPlane(w,h,res||1400,draw,g,[0,0,-0.056],Math.PI);
-  SIGNS.push(a,b);return {g,a,b}}
+  const a=textPlane(w,h,res||1400,draw,g,[0,0,0.0]);const bm=new THREE.Mesh(a.mesh.geometry,a.mesh.material);bm.position.set(0,0,-0.056);bm.rotation.y=Math.PI;g.add(bm);const b=a;
+  SIGNS.push(a);return {g,a,b}}
 
 // ================== NAVE ==================
 const fl=mesh(new THREE.PlaneGeometry(42,22),mat.floor,0,0,0);fl.rotation.x=-Math.PI/2;fl.receiveShadow=true;
@@ -689,9 +743,9 @@ for(let i=-18;i<=18;i+=3){const s=mesh(new THREE.PlaneGeometry(0.9,0.1),mat.yell
 {const dr=mesh(new THREE.PlaneGeometry(39,0.22),mat.grate,0,0.006,-6.0);dr.rotation.x=-Math.PI/2}
 const wallM=mat.panel.clone();wallM.map=TX.panel.clone();wallM.map.repeat.set(10,1);wallM.map.needsUpdate=true;
 const wallS=mat.panel.clone();wallS.map=TX.panel.clone();wallS.map.repeat.set(5,1);wallS.map.needsUpdate=true;
-box(42,6.6,0.3,wallM,0,3.3,-10.15);box(42,6.6,0.3,wallM,0,3.3,10.15);box(0.3,6.6,20.6,wallS,-20.15,3.3,0);box(0.3,6.6,20.6,wallS,20.15,3.3,0);
+box(42,6.6,0.3,wallM,0,3.3,-10.15);box(42,6.6,0.3,wallM,0,3.3,10.15);box(0.3,6.6,20.6,wallS,20.15,3.3,0);
 // zócalo sanitario
-box(41.6,0.18,0.06,mat.green,0,0.09,-9.97);box(41.6,0.18,0.06,mat.green,0,0.09,9.97);box(0.06,0.18,20,mat.green,-19.97,0.09,0);box(0.06,0.18,20,mat.green,19.97,0.09,0);
+box(41.6,0.18,0.06,mat.green,0,0.09,-9.97);box(41.6,0.18,0.06,mat.green,0,0.09,9.97);box(0.06,0.18,20,mat.green,19.97,0.09,0);
 const ceil=mesh(new THREE.PlaneGeometry(42,22),mat.wall,0,6.6,0);ceil.rotation.x=Math.PI/2;
 // estructura de cubierta, columnas, luminarias y bandeja portacables
 for(let i=-18;i<=18;i+=6){box(0.25,0.35,20.3,mat.dark,i,6.4,0);box(0.3,6.6,0.3,mat.dark,i,3.3,-9.85);box(0.3,6.6,0.3,mat.dark,i,3.3,9.85)}
@@ -710,24 +764,25 @@ const wallSign=panelSign(scene,11.5,2.3,[2.3,4.35,9.5],Math.PI,(x,W,H)=>{signBg(
   x.fillStyle="#FFFFFF";fitFont(x,"NECTARLAB",maxW,H*0.34,800,F_DISP);x.fillText("NECTARLAB",left,H*0.42);
   x.fillStyle="#F2B42A";fitFont(x,"PLANTA VIRTUAL DE PROCESOS AGROINDUSTRIALES",maxW,H*0.1,700,F_DISP);x.fillText("PLANTA VIRTUAL DE PROCESOS AGROINDUSTRIALES",left,H*0.6);
   x.fillStyle="rgba(255,255,255,.18)";x.fillRect(left,H*0.66,maxW,Math.max(2,H*0.006));
-  x.fillStyle="#9FD3C7";fitFont(x,"Programa de Ingeniería Agroindustrial · Universidad Surcolombiana",maxW,H*0.085,700,F_BODY);x.fillText("Programa de Ingeniería Agroindustrial · Universidad Surcolombiana",left,H*0.78)},2400);
-sealImg.onload=()=>{wallSign.a.redraw();wallSign.b.redraw()};sealImg.src=USCO_LOGO;
+  x.fillStyle="#9FD3C7";fitFont(x,"Programa de Ingeniería Agroindustrial · Universidad Surcolombiana",maxW,H*0.085,700,F_BODY);x.fillText("Programa de Ingeniería Agroindustrial · Universidad Surcolombiana",left,H*0.78)},2048);
+sealImg.onload=()=>{wallSign.a.redraw();shadowsDirty()};sealImg.src=USCO_LOGO;
 for(const dx of [-4.8,-1.6,1.6,4.8])for(const dy of [-0.8,0.8])rod([2.3+dx,4.35+dy,9.53],[2.3+dx,4.35+dy,9.99],0.025,mat.satin);
 for(const dx of [-3.6,3.6]){rod([2.3+dx,5.9,9.95],[2.3+dx,5.9,9.2],0.02,mat.dark);const lh=cyl(0.09,0.18,mat.dark,2.3+dx,5.86,9.18,scene,16);lh.rotation.x=-0.7}
 for(const z of [-5,0,5]){const w=mesh(new THREE.PlaneGeometry(3.6,1.6),new THREE.MeshBasicMaterial({color:0xEAF6FF}),19.98,3.6,z);w.rotation.y=-Math.PI/2;
   const fr=box(0.06,1.7,3.7,mat.satin,19.97,3.6,z);box(0.06,0.04,3.6,mat.satin,19.96,3.6,z)}
-// lavamanos sanitario junto a la entrada
-(function(){box(0.7,0.2,0.45,mat.steel,-19.5,0.95,7.5,scene,0.03);cyl(0.035,0.95,mat.steel,-19.5,0.45,7.5);rod([-19.7,1.05,7.5],[-19.7,1.3,7.5],0.015,mat.polish);rod([-19.7,1.3,7.5],[-19.5,1.3,7.5],0.015,mat.polish)})();
+
 
 // ================== GRUPOS ==================
 const G={};ORDER.forEach(k=>{G[k]=new THREE.Group();G[k].userData.st=k;scene.add(G[k])});
-const STATION_SIGN={rec:["1","Cava y recepción de pulpa","Cuarto frío a 4 °C · recepción de tambores"],mix:["2","Tanque de formulación","TK-101 · 6 m³ · agitador de turbina"],
- reg:["3","Regenerador de placas","IC-201 · sección de regeneración · 5.000 L/h"],heat:["4","Calentador y caldera","IC-202 · vapor de caldera de 20 BHP"],
- hold:["5","Tubo de sostenimiento","Serpentín sanitario · válvula de desviación"],pack:["6","Enfriamiento y envasado","IC-203 · llenadora rotativa de PET"],
- qa:["7","Laboratorio de calidad","Refractometría · pH · acidez titulable"]};
+const STATION_SIGN={frec:["1","Recepción y pesaje de fruta","Báscula de plataforma de 3 t · muestreo"],fsel:["2","Selección y clasificación","Mesa de rodillos con luz de inspección"],
+ fwash:["3","Lavado y desinfección","Tanque de inmersión de 2.000 L · aspersión"],fstore:["4","Cuarto de fruta fresca","Cámara refrigerada con control de HR"],
+ fpulp:["5","Despulpadora y refinadora","Tamiz cilíndrico · tanque pulmón de pulpa"],rec:["6","Cava de pulpa","Cuarto frío a 4 °C · tambores de pulpa"],mix:["7","Tanque de formulación","TK-101 · 6 m³ · agitador de turbina"],
+ reg:["8","Regenerador de placas","IC-201 · sección de regeneración · 5.000 L/h"],heat:["9","Calentador y caldera","IC-202 · vapor de caldera de 20 BHP"],
+ hold:["10","Tubo de sostenimiento","Serpentín sanitario · válvula de desviación"],pack:["11","Enfriamiento y envasado","IC-203 · llenadora rotativa de PET"],
+ qa:["12","Laboratorio de calidad","Refractometría · pH · acidez titulable"]};
 function hangSign(k,x,z){const g=G[k];const w=3.7,h=0.9,y=4.15,s=STATION_SIGN[k];
   for(const dx of [-w*0.36,w*0.36]){rod([x+dx,6.4,z],[x+dx,y+h/2+0.05,z],0.009,mat.satin,g);box(0.07,0.05,0.07,mat.satin,x+dx,y+h/2+0.06,z,g,0.01);box(0.12,0.03,0.12,mat.satin,x+dx,6.39,z,g)}
-  panelSign(g,w,h,[x,y,z],0,stationDraw(s[0],s[1],s[2]),1600)}
+  panelSign(g,w,h,[x,y,z],0,stationDraw(s[0],s[1],s[2]),1024)}
 function nameplate(p,pos,rotY,txt){textPlane(0.32,0.12,256,(x,W,H)=>{x.fillStyle="#c9cfd0";x.fillRect(0,0,W,H);x.strokeStyle="#666";x.lineWidth=3;x.strokeRect(2,2,W-4,H-4);x.fillStyle="#222";x.font="700 22px sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText(txt,W/2,H/2)},p,pos,rotY)}
 
 // ---------- CAVA Y RECEPCIÓN ----------
@@ -898,7 +953,8 @@ function buildHold(Dm,L){
   textPlane(0.4,0.06,256,(x,W,H)=>{x.fillStyle="#fff";x.fillRect(0,0,W,H);x.fillStyle="#14302A";x.font="700 26px sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText("REGISTRADOR T",W/2,H/2)},holdG,[rx,ry-0.26,-2.834]);
   holdG.add(contact((x0+x1)/2,z,run+1.6,1.3,0.5,holdG));
   holdG.traverse(o=>{if(o.isMesh&&o.material!==mat.glass){o.castShadow=true;o.receiveShadow=true}});
-  ST.hold.runs=runs;
+  if(typeof shadowsDirty==="function")shadowsDirty();
+  ST.hold.runs=runs;ST.hold.top=top;ST.hold.valve=vb.clone();ST.hold.path=[...pts,[xe+side*0.55,top,z],[xe+side*0.55,top,-3.1]];
 }
 hangSign("hold",7.2,-2.9);
 
@@ -964,6 +1020,151 @@ let qaScreen;
   contact(10,BZ,8.6,1.8,0.5,g);
   hangSign("qa",10,7.9)})();
 
+// ================== ZONA DE FRUTA FRESCA (ala oeste, x −44 a −20) ==================
+const fruitMat=std({color:0xF2B705,roughness:0.55});
+const crateMats=[std({color:0x1E7A4C,roughness:0.55}),std({color:0x1C4F8F,roughness:0.55})];const crateDark=std({color:0x0d1f17,roughness:0.8});
+const fruitGeo=new THREE.SphereGeometry(0.06,12,9);
+function crate(p,x,y,z,ci=0,full=true){const c=new THREE.Group();c.position.set(x,y,z);p.add(c);const m=crateMats[ci%2];
+  box(0.6,0.03,0.4,m,0,0.015,0,c);box(0.6,0.27,0.025,m,0,0.15,-0.19,c);box(0.6,0.27,0.025,m,0,0.15,0.19,c);box(0.025,0.27,0.4,m,-0.29,0.15,0,c);box(0.025,0.27,0.4,m,0.29,0.15,0,c);for(const s of [-1,1]){box(0.14,0.04,0.005,crateDark,0,0.22,s*0.204,c);box(0.5,0.006,0.004,crateDark,0,0.09,s*0.204,c)}for(const s of [-1,1])box(0.004,0.04,0.1,crateDark,s*0.304,0.22,0,c);
+  if(full)for(let i=0;i<4;i++)for(let j=0;j<3;j++){const f=mesh(fruitGeo,fruitMat,-0.21+i*0.14,0.24+((i+j)%2)*0.02,-0.12+j*0.12,c);f.scale.set(1,0.92+((i*7+j)%3)*0.05,1)}
+  return c}
+function crateStack(p,x,z,n,ci,full=true,ry=0){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;p.add(g);for(let k=0;k<n;k++)crate(g,0,k*0.285,0,ci,full&&k===n-1);return g}
+// ---------- nave ----------
+{const f2=mat.floor.clone();f2.map=TX.floor.clone();f2.map.repeat.set(6,5.5);f2.map.needsUpdate=true;
+ const fl2=mesh(new THREE.PlaneGeometry(24,22),f2,-32,0,0);fl2.rotation.x=-Math.PI/2;fl2.receiveShadow=true;
+ const wl=mat.panel.clone();wl.map=TX.panel.clone();wl.map.repeat.set(6,1);wl.map.needsUpdate=true;
+ box(24,6.6,0.3,wl,-32,3.3,-10.15);box(24,6.6,0.3,wl,-32,3.3,10.15);box(0.3,6.6,20.6,wallS,-44.15,3.3,0);
+ box(23.6,0.18,0.06,mat.green,-32,0.09,-9.97);box(23.6,0.18,0.06,mat.green,-32,0.09,9.97);box(0.06,0.18,20,mat.green,-43.97,0.09,0);
+ const c2=mesh(new THREE.PlaneGeometry(24,22),mat.wall,-32,6.6,0);c2.rotation.x=Math.PI/2;
+ for(let i=-42;i<=-24;i+=6){box(0.25,0.35,20.3,mat.dark,i,6.4,0);box(0.3,6.6,0.3,mat.dark,i,3.3,-9.85);box(0.3,6.6,0.3,mat.dark,i,3.3,9.85)}
+ for(const x of [-39.2,-33.6,-28,-22.4])for(const z of [-4.5,3.5]){box(3.3,0.07,0.55,mat.satin,x,6.05,z);const l=new THREE.Mesh(new THREE.BoxGeometry(3.15,0.02,0.42),mat.led);l.position.set(x,6.01,z);scene.add(l)}
+ box(24,0.08,0.5,mat.satin,-32,5.25,-6.6);
+ [[4.6,0.06,mat.clad],[4.85,0.045,mat.blue],[5.05,0.035,mat.yellow]].forEach(([y,r,m])=>rod([-43.8,y,-9.6],[-19.8,y,-9.6],r,m));
+ // franja de cambio de zona y rótulo en el piso
+ const zl=mesh(new THREE.PlaneGeometry(0.25,10),mat.yellow,-20,0.005,4.5);zl.rotation.x=-Math.PI/2;
+ for(const z of [-1.8,7.75]){const s=mesh(new THREE.PlaneGeometry(24,0.1),mat.yellow,-32,0.004,z);s.rotation.x=-Math.PI/2}
+ // puerta de muelle con cortina enrollable y topes
+ box(0.2,4.5,4.6,mat.satin,-43.95,2.25,3.2);const slats=std({color:0xB9C3C0,metalness:0.6,roughness:0.4,bumpMap:TX.grate,bumpScale:0.01});
+ const door=box(0.08,4.2,4.2,slats,-43.86,2.1,3.2);box(0.3,0.45,4.4,mat.satin,-43.85,4.45,3.2);
+ for(const z of [0.9,5.5]){cyl(0.08,1.0,mat.yellow,-43.3,0.5,z,scene,16);for(let k=0;k<3;k++)cyl(0.082,0.08,mat.black,-43.3,0.25+k*0.3,z,scene,16)}
+ textPlane(2.6,0.42,600,(x,W,H)=>{signBg(x,W,H);x.fillStyle="#fff";x.textAlign="center";x.textBaseline="middle";fitFont(x,"MUELLE DE RECEPCIÓN",W*0.9,H*0.42,800,F_DISP);x.fillText("MUELLE DE RECEPCIÓN",W/2,H*0.45)},scene,[-43.78,4.95,3.2],Math.PI/2);
+ // lavamanos y pediluvio en la entrada
+ box(0.7,0.2,0.45,mat.steel,-43.5,0.95,7.8,scene,0.03);cyl(0.035,0.95,mat.steel,-43.5,0.45,7.8);rod([-43.7,1.05,7.8],[-43.7,1.3,7.8],0.015,mat.polish);rod([-43.7,1.3,7.8],[-43.5,1.3,7.8],0.015,mat.polish);
+ // cerramiento oeste de la cava de pulpa (antes era la pared de la nave)
+ const pmc=mat.panel.clone();pmc.map=TX.panel.clone();pmc.map.repeat.set(3,1);pmc.map.needsUpdate=true;box(0.12,3.4,3.8,pmc,-19.85,1.7,-8.0,G.rec);
+}
+// ---------- 1 · recepción y pesaje ----------
+let scaleDisp;
+(function(){const g=G.frec,X=-40.5,Z=-4.2;
+  box(1.8,0.09,1.8,std({color:0x9aa3a2,metalness:0.8,roughness:0.45,bumpMap:TX.grate,bumpScale:0.004}),X,0.045,Z,g,0.01);
+  for(const [dx,dz] of [[-0.85,-0.85],[0.85,-0.85],[-0.85,0.85],[0.85,0.85]])cyl(0.05,0.03,mat.black,X+dx,0.015,Z+dz,g,12);
+  crateStack(g,X-0.25,Z-0.3,5,0);crateStack(g,X+0.4,Z-0.3,5,1);crateStack(g,X-0.25,Z+0.25,4,1);crateStack(g,X+0.4,Z+0.25,5,0);
+  // indicador de la báscula
+  box(0.08,1.3,0.08,mat.satin,X+1.25,0.65,Z+0.9,g);box(0.42,0.3,0.12,mat.white,X+1.25,1.42,Z+0.9,g,0.02);
+  scaleDisp=textPlane(0.34,0.12,256,()=>{},g,[X+1.25,1.45,Z+0.962]);
+  // estibas con canastillas a la espera
+  for(const [px,pz,n] of [[-42.6,-6.6,5],[-42.6,-8.2,4],[-38.4,-7.6,5]]){for(let i=0;i<5;i++)box(1.2,0.025,0.16,mat.wood,px,0.135,pz-0.48+i*0.24,g);for(const dz of [-0.5,0,0.5])box(1.2,0.1,0.1,mat.wood,px,0.07,pz+dz,g);
+    for(const dx of [-0.31,0.31])for(const dz of [-0.22,0.22])crateStack(g,px+dx,pz+dz,n,(dx>0)^(dz>0)?1:0,true).position.y=0.15;contact(px,pz,1.6,1.4,0.5,g)}
+  // mesa de muestreo con refractómetro y fruta
+  box(1.4,0.05,0.7,mat.steel,X+2.4,0.92,Z-1.6,g,0.01);for(const dx of [-0.62,0.62])for(const dz of [-0.28,0.28])cyl(0.025,0.9,mat.steel,X+2.4+dx,0.45,Z-1.6+dz,g,10);
+  box(0.5,0.03,0.35,mat.white,X+2.2,0.96,Z-1.6,g,0.01);for(let i=0;i<6;i++)mesh(fruitGeo,fruitMat,X+2.0+(i%3)*0.12,1.02,Z-1.68+Math.floor(i/3)*0.14,g);
+  box(0.26,0.1,0.18,mat.white,X+2.8,0.99,Z-1.6,g,0.03);cyl(0.03,0.02,mat.polish,X+2.72,1.05,Z-1.6,g,16);
+  // gato estibador
+  box(0.5,0.08,1.1,mat.yellow,X-1.6,0.1,Z+0.9,g,0.02);rod([X-1.6,0.15,Z+1.5],[X-1.6,1.1,Z+1.7],0.025,mat.dark,g);
+  contact(X,Z,2.4,2.4,0.6,g);hangSign("frec",X,-2.9)})();
+// ---------- 2 · selección y clasificación ----------
+const rollerFruits=[];let rollerGroup;
+(function(){const g=G.fsel,X=-35.5,Z=-4.0,L=3.6,Y=0.9;
+  for(const dz of [-0.5,0.5]){box(L,0.14,0.05,mat.satin,X,Y,Z+dz,g,0.01)}
+  for(const dx of [-L/2+0.2,0,L/2-0.2])for(const dz of [-0.5,0.5]){cyl(0.035,Y-0.07,mat.satin,X+dx,(Y-0.07)/2,Z+dz,g,12);cyl(0.06,0.02,mat.black,X+dx,0.01,Z+dz,g,12)}
+  rollerGroup=new THREE.Group();g.add(rollerGroup);
+  const rmat=std({color:0xd8dcdc,metalness:0.7,roughness:0.35});
+  for(let i=0;i<28;i++){const r=cyl(0.045,0.96,rmat,X-L/2+0.08+i*(L-0.16)/27,Y+0.02,Z,rollerGroup,14);r.rotation.x=Math.PI/2}
+  for(let i=0;i<22;i++){const f=mesh(fruitGeo,fruitMat,X-L/2+0.15+(i*0.157)%(L-0.3),Y+0.1,Z-0.32+(i%5)*0.16,g);f.userData.x0=f.position.x;rollerFruits.push(f)}
+  // canaletas laterales y canecas de descarte
+  for(const [dz,lbl,col] of [[0.95,"DESCARTE",0xA9352A],[-1.0,"SEGUNDA",0x6a7d74]]){const ch=box(0.5,0.03,0.5,mat.satin,X+1.0,Y-0.18,Z+dz*0.75,g);ch.rotation.x=dz>0?0.5:-0.5;
+    const b=lathe([[0,0],[0.3,0],[0.33,0.65],[0.35,0.68],[0,0.68]],std({color:col,roughness:0.6}),X+1.0,0,Z+dz*1.15,g,28);
+    textPlane(0.42,0.12,256,(x,W,H)=>{x.fillStyle="#fff";x.fillRect(0,0,W,H);x.fillStyle="#14302A";x.textAlign="center";x.textBaseline="middle";fitFont(x,lbl,W*0.9,H*0.6,800,F_DISP);x.fillText(lbl,W/2,H/2)},g,[X+1.0,0.45,Z+dz*1.15+(dz>0?0.34:-0.34)],dz>0?0:Math.PI)}
+  // marco de luz de inspección
+  for(const dx of [-L/2+0.1,L/2-0.1])for(const dz of [-0.55,0.55])rod([X+dx,Y,Z+dz],[X+dx,2.3,Z+dz],0.025,mat.satin,g);
+  box(L,0.06,1.2,mat.satin,X,2.32,Z,g,0.01);const lp=new THREE.Mesh(new THREE.BoxGeometry(L-0.3,0.02,0.25),mat.led);lp.position.set(X,2.28,Z);g.add(lp);
+  // tapetes antifatiga
+  for(const dz of [-1.0,1.0]){const t=box(L,0.02,0.6,mat.black,X,0.01,Z+dz,g)}
+  // tolva de alimentación
+  box(0.8,0.5,1.1,mat.steel,X-L/2-0.35,Y+0.15,Z,g,0.03);
+  contact(X,Z,L+1.2,2.6,0.5,g);hangSign("fsel",X,-2.9)})();
+// ---------- 3 · lavado y desinfección ----------
+const bubbles=[];let washWater;
+(function(){const g=G.fwash,X=-30.8,Z=-4.3,W=2.4,D=0.95,H=1.0;
+  box(W,0.05,D,mat.steel,X,0.35,Z,g);box(W,H,0.04,mat.steel,X,0.35+H/2,Z-D/2,g);box(W,H,0.04,mat.steel,X,0.35+H/2,Z+D/2,g);box(0.04,H,D,mat.steel,X-W/2,0.35+H/2,Z,g);box(0.04,H,D,mat.steel,X+W/2,0.35+H/2,Z,g);
+  box(W+0.08,0.04,0.08,mat.polish,X,0.35+H,Z-D/2,g);box(W+0.08,0.04,0.08,mat.polish,X,0.35+H,Z+D/2,g);
+  for(const dx of [-W/2+0.1,W/2-0.1])for(const dz of [-D/2+0.08,D/2-0.08])cyl(0.04,0.35,mat.satin,X+dx,0.175,Z+dz,g,12);
+  washWater=mesh(new THREE.PlaneGeometry(W-0.08,D-0.08),mat.water,X,0.35+H*0.82,Z,g);washWater.rotation.x=-Math.PI/2;
+  for(let i=0;i<14;i++)mesh(fruitGeo,fruitMat,X-W/2+0.25+(i%7)*0.3,0.35+H*0.84,Z-0.2+Math.floor(i/7)*0.36,g);
+  const bm=std({color:0xffffff,transparent:true,opacity:0.6,roughness:0.1});
+  for(let i=0;i<30;i++){const b=mesh(new THREE.SphereGeometry(0.02,6,5),bm,X-W/2+0.15+Math.random()*(W-0.3),0.5,Z-D/2+0.1+Math.random()*(D-0.2),g);b.userData.t=Math.random();bubbles.push(b)}
+  // soplador de burbujeo
+  box(0.5,0.35,0.4,mat.blue,X-W/2-0.5,0.18,Z+0.2,g,0.04);route([[X-W/2-0.5,0.35,Z+0.2],[X-W/2-0.5,0.6,Z+0.2],[X-W/2+0.1,0.6,Z+0.2],[X-W/2+0.1,0.42,Z+0.2]],0.02,mat.satin,g);
+  // elevador de rodillos inclinado con barra de aspersión
+  const ex0=X+W/2-0.2,ex1=X+W/2+1.6,ey0=0.75,ey1=1.55;
+  for(const dz of [-0.3,0.3]){rod([ex0,ey0,Z+dz],[ex1,ey1,Z+dz],0.03,mat.satin,g)}
+  for(let i=0;i<14;i++){const t=i/13;const r=cyl(0.03,0.6,std({color:0x2a2f2e,roughness:0.6}),ex0+t*(ex1-ex0),ey0+t*(ey1-ey0)+0.03,Z,g,10);r.rotation.x=Math.PI/2}
+  for(const dx of [ex0+0.5,ex1-0.1]){rod([dx,0,Z-0.3],[dx,ey0+(dx-ex0)/(ex1-ex0)*(ey1-ey0),Z-0.3],0.025,mat.satin,g);rod([dx,0,Z+0.3],[dx,ey0+(dx-ex0)/(ex1-ex0)*(ey1-ey0),Z+0.3],0.025,mat.satin,g)}
+  const sb=(ex0+ex1)/2;rod([sb-0.4,ey1+0.35,Z-0.35],[sb+0.4,ey1+0.6,Z-0.35],0.018,mat.polish,g);rod([sb-0.4,ey1+0.35,Z+0.35],[sb+0.4,ey1+0.6,Z+0.35],0.018,mat.polish,g);
+  for(let i=0;i<5;i++){const t=i/4;for(const dz of [-0.35,0.35])cyl(0.015,0.05,mat.blue,sb-0.4+t*0.8,ey1+0.32+t*0.25,Z+dz,g,8)}
+  // dosificación de hipoclorito
+  box(0.32,0.42,0.24,mat.white,X+0.2,0.21,Z+D/2+0.45,g,0.04);cyl(0.03,0.05,mat.blue,X+0.27,0.45,Z+D/2+0.45,g,10);
+  textPlane(0.26,0.12,256,(x,W2,H2)=>{x.fillStyle="#f6f6f2";x.fillRect(0,0,W2,H2);x.fillStyle="#24508E";x.textAlign="center";x.textBaseline="middle";x.font="800 34px sans-serif";x.fillText("NaOCl 13 %",W2/2,H2/2)},g,[X+0.2,0.24,Z+D/2+0.571]);
+  box(0.2,0.16,0.14,mat.blue,X+0.65,0.85,Z+D/2+0.12,g,0.02);route([[X+0.3,0.45,Z+D/2+0.45],[X+0.3,0.85,Z+D/2+0.45],[X+0.55,0.85,Z+D/2+0.45],[X+0.55,0.85,Z+D/2+0.15]],0.008,mat.white,g);
+  route([[X+0.75,0.85,Z+D/2+0.12],[X+0.9,0.85,Z+D/2+0.12],[X+0.9,1.4,Z+D/2+0.12],[X+0.9,1.4,Z+D/2-0.1]],0.008,mat.white,g);
+  box(0.3,0.08,0.2,mat.white,X-0.6,1.42,Z+D/2+0.1,g,0.02);// medidor de cloro / ORP
+  contact(X+0.5,Z,W+2.6,2.0,0.55,g);hangSign("fwash",X+0.3,-2.9)})();
+// ---------- 4 · cuarto de fruta fresca ----------
+let storeDisp;
+(function(){const g=G.fstore,X0=-28.3,X1=-23.7,Xc=(X0+X1)/2;const pm=mat.panel.clone();pm.map=TX.panel.clone();pm.map.repeat.set(2,1);pm.map.needsUpdate=true;
+  box(0.12,3.4,3.9,pm,X0,1.7,-8.05,g);box(0.12,3.4,3.9,pm,X1,1.7,-8.05,g);box(X1-X0,0.12,3.95,pm,Xc,3.45,-8.05,g);
+  box(1.3,3.4,0.12,pm,X0+0.65,1.7,-6.1,g);box(1.3,3.4,0.12,pm,X1-0.65,1.7,-6.1,g);box(X1-X0-2.6,0.8,0.12,pm,Xc,3.0,-6.1,g);
+  for(let i=0;i<10;i++){const s=box(0.19,2.5,0.006,mat.glass,Xc-0.9+i*0.2,1.33,-6.02,g);s.rotation.y=(i%2?.05:-.05)}
+  box(2.1,0.08,0.18,mat.satin,Xc,2.62,-6.0,g);
+  for(const x of [X0-0.05,X1+0.05])box(0.08,3.45,0.08,mat.satin,x,1.72,-6.06,g);box(X1-X0+0.1,0.08,0.08,mat.satin,Xc,3.43,-6.06,g);
+  mesh(new THREE.PlaneGeometry(2,2.6),new THREE.MeshBasicMaterial({color:0x22333a}),Xc,1.3,-6.25,g);
+  for(const [dx,dz,n] of [[-1.2,-7.0,6],[-0.5,-7.0,5],[0.6,-7.2,6],[1.3,-7.2,4],[-1.2,-8.6,6],[1.2,-8.8,6]])crateStack(g,Xc+dx,dz,n,(n%2),true);
+  box(1.4,0.5,0.5,mat.white,Xc,3.0,-9.7,g,0.04);for(const dx of [-0.35,0.35])mesh(new THREE.CircleGeometry(0.17,24),mat.fan,Xc+dx,3.0,-9.44,g);
+  textPlane(1.9,0.42,500,(x,W,H)=>{x.fillStyle="#2E8B57";x.fillRect(0,0,W,H);x.fillStyle="#fff";x.textAlign="center";x.textBaseline="middle";fitFont(x,"FRUTA FRESCA",W*0.9,H*0.5,800,F_DISP);x.fillText("FRUTA FRESCA",W/2,H/2)},g,[Xc,3.05,-6.03]);
+  box(0.3,0.16,0.05,mat.black,X1-0.4,1.6,-6.02,g,0.01);storeDisp=textPlane(0.24,0.1,200,()=>{},g,[X1-0.4,1.6,-5.99]);
+  box(0.4,0.3,0.05,mat.white,X0+0.45,1.5,-6.02,g,0.02);// higrómetro
+  hangSign("fstore",Xc,-2.9)})();
+// ---------- 5 · despulpadora y refinadora ----------
+let pulperShaft,pulperShaft2;
+(function(){const g=G.fpulp,X=-22.4,Z=-4.4;
+  // estructura
+  for(const dx of [-0.75,0.75])for(const dz of [-0.4,0.4]){box(0.07,1.2,0.07,mat.satin,X+dx,0.6,Z+dz,g,0.008);cyl(0.06,0.02,mat.black,X+dx,0.01,Z+dz,g,10)}
+  box(1.7,0.06,0.9,mat.satin,X,1.2,Z,g,0.01);
+  // despulpadora: cilindro horizontal con tamiz, tolva y motor
+  const d1=cyl(0.36,1.3,mat.steel,X,1.62,Z,g,40);d1.rotation.z=Math.PI/2;
+  for(const dx of [-0.65,0.65]){const r=mesh(new THREE.TorusGeometry(0.36,0.025,8,40),mat.polish,X+dx,1.62,Z,g);r.rotation.y=Math.PI/2}
+  for(let i=0;i<6;i++){const cl=mesh(new THREE.TorusGeometry(0.365,0.012,6,40),mat.satin,X-0.5+i*0.2,1.62,Z,g);cl.rotation.y=Math.PI/2}
+  pulperShaft=new THREE.Group();pulperShaft.position.set(X+0.72,1.62,Z);g.add(pulperShaft);const sh=cyl(0.03,0.2,mat.polish,0,0,0,pulperShaft,12);sh.rotation.z=Math.PI/2;box(0.04,0.18,0.03,mat.yellow,0.05,0,0,pulperShaft);
+  lathe([[0.08,0],[0.42,0.45],[0.45,0.48],[0.08,0.03]],mat.steel,X-0.35,1.92,Z,g,32);
+  box(0.35,0.35,0.35,mat.green,X+1.0,1.62,Z,g,0.04);const mo=cyl(0.15,0.38,mat.green,X+1.38,1.62,Z,g,28);mo.rotation.z=Math.PI/2;
+  // salida de pulpa y descarga de residuos
+  box(0.5,0.05,0.4,mat.steel,X,1.28,Z+0.1,g);
+  const ch=box(0.45,0.03,0.55,mat.steel,X+0.95,1.15,Z+0.55,g);ch.rotation.x=0.6;
+  lathe([[0,0],[0.32,0],[0.35,0.7],[0.37,0.73],[0,0.73]],std({color:0x7a5230,roughness:0.7}),X+1.0,0,Z+1.0,g,28);
+  textPlane(0.5,0.12,300,(x,W,H)=>{x.fillStyle="#fff";x.fillRect(0,0,W,H);x.fillStyle="#14302A";x.textAlign="center";x.textBaseline="middle";fitFont(x,"CÁSCARA Y SEMILLA",W*0.9,H*0.55,800,F_DISP);x.fillText("CÁSCARA Y SEMILLA",W/2,H/2)},g,[X+1.0,0.5,Z+1.37]);
+  // refinadora (segundo tamiz) bajo la despulpadora
+  const d2=cyl(0.24,1.0,mat.steel,X-0.1,0.78,Z-0.05,g,32);d2.rotation.z=Math.PI/2;
+  pulperShaft2=new THREE.Group();pulperShaft2.position.set(X+0.42,0.78,Z-0.05);g.add(pulperShaft2);const sh2=cyl(0.025,0.16,mat.polish,0,0,0,pulperShaft2,12);sh2.rotation.z=Math.PI/2;box(0.03,0.14,0.03,mat.yellow,0.04,0,0,pulperShaft2);
+  // tanque pulmón de pulpa con bomba hacia la cava
+  lathe([[0,0.2],[0.38,0.2],[0.42,0.25],[0.42,1.0],[0.4,1.04],[0,1.04]],mat.steel,X-1.35,0,Z+0.35,g,36);
+  for(let i=0;i<3;i++){const a=i/3*Math.PI*2;cyl(0.025,0.2,mat.satin,X-1.35+Math.cos(a)*0.3,0.1,Z+0.35+Math.sin(a)*0.3,g,8)}
+  route([[X-0.55,0.78,Z-0.05],[X-1.0,0.78,Z-0.05],[X-1.0,0.9,Z+0.35],[X-1.0,0.9,Z+0.35]],0.03,mat.polish,g,{clamps:true});
+  box(0.36,0.22,0.24,mat.blue,X-1.35,0.12,Z+1.0,g,0.03);
+  route([[X-1.35,0.25,Z+0.75],[X-1.35,0.25,Z+1.0]],0.025,mat.polish,g);
+  route([[X-1.2,0.12,Z+1.0],[X-0.6,0.12,Z+1.0],[X-0.6,0.8,Z+1.0],[X-0.6,0.8,Z+1.65],[-14.2,0.8,Z+1.65]],0.032,mat.polish,g,{clamps:true});
+  for(let x=-21;x<=-15;x+=2){box(0.06,0.74,0.06,mat.satin,x,0.37,Z+1.65,g,0.008);box(0.2,0.015,0.2,mat.satin,x,0.008,Z+1.65,g)}
+  contact(X,Z,2.6,2.2,0.6,g);hangSign("fpulp",X+0.25,-2.9)})();
+
 // ---------- COLECTOR DE PRODUCTO, SOPORTES Y PARTÍCULAS ----------
 rod([-14,0.8,-2.75],[15.3,0.8,-2.75],0.034,mat.polish,scene,24);
 for(let x=-13;x<=15;x+=2){const s=new THREE.Vector3(x,0.8,-2.75);clampAt(s,new THREE.Vector3(1,0,0),0.034);
@@ -983,12 +1184,180 @@ const HMI={};
 function hmiPost(k,x,z){const g=G[k];box(0.1,1.2,0.1,mat.satin,x,0.6,z,g,0.01);box(0.3,0.02,0.3,mat.satin,x,0.01,z,g);
   const enc=box(0.66,0.5,0.14,mat.steel,x,1.42,z,g,0.03);enc.rotation.x=-0.18;
   HMI[k]=textPlane(0.56,0.38,512,()=>{},g,[x,1.43,z+0.075]);HMI[k].mesh.rotation.x=-0.18}
-hmiPost("rec",-12.4,-2.3);hmiPost("mix",-7.0,-2.3);hmiPost("reg",-2.0,-2.3);hmiPost("heat",2.9,-2.3);hmiPost("hold",4.4,-2.3);hmiPost("pack",12.6,-2.3);
+hmiPost("frec",-38.4,-2.3);hmiPost("fsel",-33.4,-2.3);hmiPost("fwash",-28.6,-2.3);hmiPost("fstore",-24.2,-2.3);hmiPost("fpulp",-20.6,-2.3);hmiPost("rec",-12.4,-2.3);hmiPost("mix",-7.0,-2.3);hmiPost("reg",-2.0,-2.3);hmiPost("heat",2.9,-2.3);hmiPost("hold",4.4,-2.3);hmiPost("pack",12.6,-2.3);
 
 // sombras: solo piezas medianas y grandes proyectan
 scene.traverse(o=>{if(!o.isMesh)return;if(o.material===mat.shadow||o.material.map===TX.shadow||o.material===mat.glass||o.material.isMeshBasicMaterial){o.castShadow=false;o.receiveShadow=false;return}
   o.receiveShadow=true;if(!o.geometry.boundingSphere)o.geometry.computeBoundingSphere();o.castShadow=o.geometry.boundingSphere.radius*Math.max(o.scale.x,o.scale.y,o.scale.z)>0.12});
 fl.receiveShadow=true;
+
+// ---------- optimización: fusión de piezas fijas por material ----------
+function mergeBucket(list,root,inv){let total=0;const parts=[];const tmp=new THREE.Matrix4();
+  for(const m of list){const g=m.geometry.index?m.geometry.toNonIndexed():m.geometry.clone();tmp.multiplyMatrices(inv,m.matrixWorld);g.applyMatrix4(tmp);parts.push(g);total+=g.attributes.position.count}
+  const pos=new Float32Array(total*3),nor=new Float32Array(total*3),uv=new Float32Array(total*2);let o=0;
+  for(const g of parts){const n=g.attributes.position.count;pos.set(g.attributes.position.array,o*3);if(g.attributes.normal)nor.set(g.attributes.normal.array,o*3);if(g.attributes.uv)uv.set(g.attributes.uv.array,o*2);o+=n;g.dispose()}
+  const geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.BufferAttribute(pos,3));geo.setAttribute("normal",new THREE.BufferAttribute(nor,3));geo.setAttribute("uv",new THREE.BufferAttribute(uv,2));geo.computeBoundingSphere();geo.computeBoundingBox();
+  const mm=new THREE.Mesh(geo,list[0].material);mm.castShadow=list[0].castShadow;mm.receiveShadow=list[0].receiveShadow;mm.renderOrder=list[0].renderOrder;root.add(mm);
+  for(const m of list)m.parent.remove(m);return mm}
+function mergeStatic(root,exclude,directOnly){root.updateMatrixWorld(true);const inv=new THREE.Matrix4().copy(root.matrixWorld).invert();const buckets=new Map();
+  const take=o=>{if(!o.isMesh||Array.isArray(o.material)||!o.geometry||!o.geometry.attributes.position||!o.visible)return;const k=o.material.uuid+"|"+(o.castShadow?1:0)+(o.receiveShadow?1:0)+"|"+o.renderOrder;if(!buckets.has(k))buckets.set(k,[]);buckets.get(k).push(o)};
+  const visit=o=>{if(exclude.has(o))return;if(o!==root)take(o);if(!directOnly||o===root)o.children.forEach(visit)};
+  visit(root);let n=0;buckets.forEach(list=>{if(list.length>1){mergeBucket(list,root,inv);n+=list.length}});
+  // limpiar grupos vacíos
+  const empty=[];root.traverse(o=>{if(o!==root&&o.type==="Group"&&!exclude.has(o)&&o.children.length===0)empty.push(o)});empty.forEach(o=>o.parent&&o.parent.remove(o));return n}
+{const EX=new Set([agitator,carousel,holdG,pulperShaft,pulperShaft2,...bottles,...rollerFruits,...bubbles,...parts,...steam.map(s=>s.m)]);
+ ORDER.forEach(k=>mergeStatic(G[k],EX,false));mergeStatic(scene,EX,true)}
+// las sombras de la nave se calculan una vez y solo se rehacen cuando algo cambia
+renderer.shadowMap.autoUpdate=false;
+function shadowsDirty(){renderer.shadowMap.needsUpdate=true}
+shadowsDirty();
+// ================== ANIMACIÓN DE LA ORDEN DE PRODUCCIÓN ==================
+let TOUR=null;
+// --- elementos dinámicos (se crean después de la fusión de geometría) ---
+// mirilla de nivel del tanque de formulación
+const levelTube=(function(){const g=G.mix,x=-9.58,z=-3.32,y0=1.28,h=1.55;
+  for(const y of [y0-0.04,y0+h+0.04]){box(0.09,0.06,0.09,mat.satin,x,y,z,g,0.01);rod([x,y,z],[x+0.12,y,z-0.18],0.018,mat.satin,g)}
+  cyl(0.034,h,mat.glass,x,y0+h/2,z,g,14);
+  const liq=cyl(0.026,1,mat.nectar,x,y0,z,g,12);liq.geometry.translate(0,0.5,0);liq.position.y=y0;liq.scale.y=h*0.35;
+  for(let i=0;i<=6;i++)box(0.03,0.004,0.004,mat.dark,x+0.04,y0+i*h/6,z+0.02,g);
+  return {liq,h,y0}})();
+// baliza de la caldera y luz de estado de la llenadora / válvula de desviación
+const lampMat=c=>new THREE.MeshBasicMaterial({color:c});
+const boilerLamp=mesh(new THREE.SphereGeometry(0.07,14,10),lampMat(0x3cff8a),3.6,1.5,-6.6,G.heat);
+const fillerLamp=mesh(new THREE.SphereGeometry(0.08,14,10),lampMat(0x3cff8a),16.35,2.98,-3.9,G.pack);
+const valveLamp=mesh(new THREE.SphereGeometry(0.06,14,10),lampMat(0x3cff8a),0,0,0,G.hold);valveLamp.visible=false;
+// rótulos flotantes
+function makeLabel(){const c=document.createElement("canvas");c.width=1024;c.height=260;const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,depthWrite:false,transparent:true,toneMapped:false,sizeAttenuation:false}));sp.center.set(0.5,0);sp.renderOrder=999;sp.scale.set(0.46,0.1168,1);sp.visible=false;scene.add(sp);
+  sp.userData.set=(title,sub,tone)=>{const x=c.getContext("2d");x.clearRect(0,0,1024,260);const col={ok:"#1F7A47",bad:"#B23324",info:"#14302A",warn:"#9A6200"}[tone||"info"];
+    rrect(x,10,10,1004,196,34);x.fillStyle="rgba(250,252,250,.97)";x.fill();x.lineWidth=9;x.strokeStyle=col;x.stroke();
+    x.fillStyle=col;x.beginPath();x.moveTo(482,206);x.lineTo(512,254);x.lineTo(542,206);x.closePath();x.fill();
+    x.textAlign="center";x.textBaseline="middle";x.fillStyle=col;fitFont(x,title,950,74,800,F_DISP);x.fillText(title,512,sub?80:108);
+    if(sub){x.fillStyle="#34493F";fitFont(x,sub,950,50,700,F_BODY);x.fillText(sub,512,152)}tex.needsUpdate=true};
+  return sp}
+const LABELS=[makeLabel(),makeLabel(),makeLabel()];
+function label(i,pos,title,sub,tone){const L=LABELS[i];L.userData.set(title,sub,tone);L.position.set(...pos);L.visible=true}
+// partículas instanciadas para los flujos
+// un conjunto instanciado por color (más robusto que el color por instancia)
+const PFLOW={pools:new Map(),get(hex){let p=this.pools.get(hex);if(!p){p=new THREE.InstancedMesh(new THREE.SphereGeometry(1,10,8),new THREE.MeshBasicMaterial({color:hex,depthTest:false,depthWrite:false,transparent:true,opacity:0.92,toneMapped:false}),160);p.renderOrder=998;p.frustumCulled=false;p.count=0;scene.add(p);this.pools.set(hex,p)}return p},
+  reset(){this.pools.forEach(p=>{p.count=0})},commit(){this.pools.forEach(p=>{p.instanceMatrix.needsUpdate=true})}};
+const _d=new THREE.Object3D();
+function pathOf(pts){const cp=new THREE.CurvePath();for(let i=1;i<pts.length;i++)cp.add(new THREE.LineCurve3(new THREE.Vector3(...pts[i-1]),new THREE.Vector3(...pts[i])));return cp}
+function drawFlows(flows,time){PFLOW.reset();
+  for(const f of flows){for(let i=0;i<f.n;i++){const u=((time*f.speed)/f.len+i/f.n)%1;_d.position.copy(f.curve.getPointAt(u));
+      if(f.jitter){_d.position.x+=Math.sin(i*12.9+time*3)*f.jitter;_d.position.z+=Math.cos(i*7.3+time*2)*f.jitter}
+      const s=f.r*(f.grow?0.6+u*0.9:1);_d.scale.set(s,s,s);_d.updateMatrix();
+      const p=PFLOW.get(typeof f.color==="function"?f.color(i,u):f.color);if(p.count<160){p.setMatrixAt(p.count,_d.matrix);p.count++}}}
+  PFLOW.commit()}
+const flow=(pts,o)=>{const curve=pathOf(pts);return {curve,len:curve.getLength(),n:o.n||16,speed:o.speed||0.8,r:(o.r||0.045)*1.3,color:o.color||0xF2B705,jitter:o.jitter||0,grow:o.grow}};
+// trayectorias fijas
+const P_CAVA_TK=[[-14,0.3,-3.3],[-14,0.8,-2.75],[-9.6,0.8,-2.75],[-9.6,0.4,-3.3]];
+const P_REG_COLD=[[-8.6,0.8,-2.75],[-5.25,0.8,-2.75],[-5.25,0.48,-3.64],[-4.9,0.48,-3.64]];
+const P_REG_HOT=[[9.6,2.95,-4.4],[-2.6,2.95,-4.4],[-2.6,1.48,-4.4]];
+const P_REG_OUT=[[-4.9,1.48,-3.64],[-5.5,1.48,-3.64],[-5.5,0.8,-2.75],[0.0,0.8,-2.75]];
+const P_STEAM=[[1.6,2.4,-7.6],[1.6,3.1,-7.6],[1.6,3.1,-4.6],[-0.05,3.1,-4.6],[-0.05,1.48,-4.6],[-0.05,1.48,-4.16],[0.2,1.48,-4.16]];
+const P_HEAT=[[0.0,0.8,-2.75],[0.0,1.48,-3.64],[0.5,1.48,-3.64]];
+const P_PACK=[[11,0.8,-2.75],[15.3,0.8,-2.75],[15.3,1.95,-2.75],[15.6,1.95,-3.0]];
+const P_FSEL_DESC=[[-34.5,1.0,-3.75],[-34.5,0.95,-3.45],[-34.5,0.7,-2.85]];
+const P_WASH=[[-29.8,0.86,-4.3],[-28.2,1.66,-4.3]];
+const P_PULP=[[-22.4,1.3,-4.3],[-22.45,1.0,-4.4],[-23.2,0.85,-4.45],[-23.4,0.95,-4.05],[-23.75,1.05,-4.05]];
+const P_RES=[[-21.5,1.3,-4.0],[-21.45,1.0,-3.75],[-21.4,0.75,-3.4]];
+const P_FREC=[[-43,0.15,3.2],[-41.2,0.15,0.5],[-40.5,0.2,-3.0]];
+
+// --- definición del recorrido según la orden ---
+function tourSteps(m,r,stars){const steps=[];const s=r.s;const ok=stars>=1;
+  const camOf=k=>{const I=INSPECT[k];return {c:new THREE.Vector3(I.c[0],I.c[1]+0.35,I.c[2]),r:I.r*1.22,a0:I.a0||0}};
+  if(r.kind==="pulpa"){
+    steps.push({k:"frec",title:"Recepción y pesaje",text:`Llegan ${fmt(r.fruta,0)} kg de maracuyá en ${fmt(Math.ceil(r.fruta/20),0)} canastillas de 20 kg. La báscula registra el lote antes de aceptarlo.`,
+      flows:[flow(P_FREC,{n:10,speed:1.2,r:0.07,color:0x1E7A4C})],
+      upd:t=>{scaleDisp.redraw((x,W,H)=>{x.fillStyle="#0a1210";x.fillRect(0,0,W,H);x.fillStyle="#58f08a";x.font=`700 ${Math.round(H*0.62)}px JetBrains Mono, monospace`;x.textAlign="right";x.textBaseline="middle";x.fillText(fmt(r.fruta*Math.min(1,t*1.4),0)+" kg",W-10,H/2)})},
+      labels:[[[-40.5,1.9,-4.2],`${fmt(r.fruta,0)} kg recibidos`,`${fmt(Math.ceil(r.fruta/20),0)} canastillas · jugo 13,5 °Bx`,"info"]]});
+    steps.push({k:"fsel",title:"Selección y clasificación",text:`La mesa de rodillos retira el 8 % del lote (${fmt(r.desc,0)} kg) con daño mecánico o pudrición. Siguen ${fmt(r.sel,0)} kg de fruta sana.`,
+      flows:[flow(P_FSEL_DESC,{n:4,speed:0.5,r:0.06,color:0x5a3a1c})],
+      labels:[[[-35.5,2.45,-4.0],`Descarte: ${fmt(r.desc,0)} kg`,`Fruta sana: ${fmt(r.sel,0)} kg`,"info"]]});
+    const clOk=r.ppm>=100&&r.ppm<=200;
+    steps.push({k:"fwash",title:"Lavado y desinfección",text:clOk?`El agua del tanque queda con ${fmt(r.ppm,0)} ppm de cloro: dentro del rango de 100 a 200 ppm. La fruta sale por el elevador con enjuague por aspersión.`:`El agua del tanque queda con ${fmt(r.ppm,0)} ppm de cloro, fuera del rango de 100 a 200 ppm. ${r.ppm<100?"La desinfección no es confiable.":"Quedan residuos de cloro y se corroe el equipo."}`,
+      flows:[flow(P_WASH,{n:12,speed:0.45,r:0.06,color:FR.maracuya.col})],
+      labels:[[[-30.6,1.9,-4.3],`Cloro libre: ${fmt(r.ppm,0)} ppm`,clOk?"Dentro de 100 – 200 ppm":"Fuera de 100 – 200 ppm",clOk?"ok":"bad"]]});
+    const stOk=r.T>=7&&r.T<=10;
+    steps.push({k:"fstore",title:"Cuarto de fruta fresca",text:stOk?`La fruta espera dos días a ${fmt(r.T,1)} °C. Solo pierde el 1 % de su peso por respiración (${fmt(r.perd,0)} kg).`:r.T<7?`A ${fmt(r.T,1)} °C el maracuyá sufre daño por frío: pardeamiento y pudriciones. Se pierden ${fmt(r.perd,0)} kg.`:`A ${fmt(r.T,1)} °C la fruta respira más rápido, se arruga y pierde ${fmt(r.perd,0)} kg.`,
+      labels:[[[-26,3.3,-6.0],`${fmt(r.T,1)} °C · merma ${fmt(r.lossSt*100,0)} %`,stOk?"Sin daño por frío":r.T<7?"Daño por frío":"Pérdida de peso acelerada",stOk?"ok":"bad"]]});
+    const tOk=r.tamiz!=="3.0";
+    steps.push({k:"fpulp",title:"Despulpado y refinado",text:`Entran ${fmt(r.lav,0)} kg de fruta. Con el tamiz de ${r.tamiz.replace(".",",")} mm salen ${fmt(r.pulp,0)} kg de pulpa (${fmt(r.Y*100,0)} %) y ${fmt(r.res,0)} kg de cáscara y semilla.${tOk?"":" Pasan fragmentos de semilla: la pulpa queda con puntos negros."}`,
+      flows:[flow(P_PULP,{n:22,speed:0.6,r:0.04,color:(i)=>(!tOk&&i%4===0)?0x1a1410:FR.maracuya.col}),flow(P_RES,{n:10,speed:0.5,r:0.05,color:0x6b4a2a})],
+      spin:true,
+      labels:[[[-22.6,2.4,-4.4],`Pulpa: ${fmt(r.pulp,0)} kg`,`Residuo: ${fmt(r.res,0)} kg · rendimiento ${fmt(r.Y*100,0)} %`,r.pulp>=800&&tOk?"ok":"bad"]]});
+    return steps.map(x=>({...x,cam:camOf(x.k)}))}
+  // néctar
+  const pul=s.pulps.map(p=>`${fmt(p.kg,0)} kg de pulpa de ${FR[p.fruit].name.toLowerCase()}`).join(" y ");
+  const fill=Math.min(1,s.batch/6000);
+  steps.push({k:"rec",title:"Despacho desde la cava de pulpa",text:`Salen ${pul} hacia el tanque de formulación.`,flows:[flow(P_CAVA_TK,{n:16,speed:0.9})],
+    labels:[[[-15,1.7,-4.0],"Despacho de pulpa",pul,"info"]]});
+  steps.push({k:"mix",title:"Formulación en el tanque TK-101",text:`Entran ${pul}, ${fmt(s.sugar,0)} kg de azúcar, ${fmt(s.citric,1)} kg de ácido cítrico y ${fmt(r.water,0)} kg de agua. El agitador homogeniza el lote de ${fmt(s.batch,0)} kg.`,
+    upd:t=>{levelTube.liq.scale.y=Math.max(0.001,levelTube.h*fill*Math.min(1,t*1.5))},agit:true,
+    labels:[[[-8.4,3.7,-4.2],`${fmt(r.Bx,2)} °Bx · acidez ${fmt(r.TA,2)} %`,`pH ${fmt(r.pH,2)} · ${fmt(r.fruitPct,1)} % de fruta`,"info"],[[-9.58,2.9,-3.32],`Nivel: ${fmt(fill*100,0)} %`,`${fmt(s.batch,0)} kg en 6 m³`,"info"]]});
+  const Thot=s.T-(r.Treg-s.Tin);
+  steps.push({k:"reg",title:"Regeneración",text:s.eps>0?`El néctar frío entra a ${fmt(s.Tin,0)} °C y sale a ${fmt(r.Treg,1)} °C calentado por el néctar pasteurizado, que baja de ${fmt(s.T,1)} a ${fmt(Thot,1)} °C. Así se ahorra vapor.`:"Sin regeneración: todo el calentamiento lo hace el vapor.",
+    flows:[flow(P_REG_COLD,{n:12,speed:0.8,color:0x4f8fd6}),flow(P_REG_HOT,{n:24,speed:1.2,color:0xE2702A}),flow(P_REG_OUT,{n:12,speed:0.8,color:0xE2A23A})],
+    labels:[[[-3.6,2.0,-3.9],`Frío: ${fmt(s.Tin,0)} → ${fmt(r.Treg,1)} °C`,`Caliente: ${fmt(s.T,1)} → ${fmt(Thot,1)} °C · ε = ${fmt(s.eps*100,0)} %`,"info"]]});
+  const stOk=r.steam<=STEAM_MAX+1e-9;
+  steps.push({k:"heat",title:"Calentamiento con vapor",text:stOk?`El calentador lleva el néctar de ${fmt(r.Treg,1)} a ${fmt(s.T,1)} °C con ${fmt(r.steam,0)} kg/h de vapor: la caldera trabaja al ${fmt(r.steam/STEAM_MAX*100,0)} % de su capacidad.`:`Se necesitan ${fmt(r.steam,0)} kg/h de vapor y la caldera solo entrega ${STEAM_MAX}. El néctar no alcanza ${fmt(s.T,1)} °C.`,
+    flows:[flow(P_STEAM,{n:Math.max(4,Math.min(40,Math.round(r.steam/10))),speed:1.4,r:0.075,color:0xa9c9dc,jitter:0.03}),flow(P_HEAT,{n:8,speed:0.8,color:0xE2A23A})],
+    lamp:stOk?0x3cff8a:0xff3b2f,blink:!stOk,
+    labels:[[[1.6,2.65,-7.6],`Vapor: ${fmt(r.steam,0)} / ${STEAM_MAX} kg/h`,stOk?`Carga de la caldera: ${fmt(r.steam/STEAM_MAX*100,0)} %`:"Capacidad insuficiente",stOk?"ok":"bad"],[[1.1,1.95,-3.9],`Néctar: ${fmt(r.Treg,1)} → ${fmt(s.T,1)} °C`,`${fmt(r.Qh/3600,0)} kW`,"info"]]});
+  const hp=ST.hold.path||[];const pasOk=r.logR>=5&&stOk;
+  steps.push({k:"hold",title:"Tubo de sostenimiento",text:`${s.tube?`Con Re = ${fmt(r.Re,0)} el flujo es ${r.Re<2100?"laminar: la partícula más rápida viaja al doble de la velocidad media":"turbulento"}. `:""}La partícula más rápida permanece ${fmt(r.tFast,1)} s y se logran ${fmt(r.logR,1)} reducciones decimales. ${pasOk?"La válvula envía el néctar a envasado.":"La válvula de desviación devuelve el producto al tanque."}`,
+    flows:hp.length>1?[flow(hp,{n:Math.min(40,8+hp.length*2),speed:Math.max(0.3,Math.min(2.2,(r.v||0.6)*2)),color:(i)=>i%9===0?0xffffff:(pasOk?0xE2A23A:0xff4a3a)})]:[],
+    valve:pasOk,
+    labels:[[[7.0,(ST.hold.top||2)+0.45,-3.5],`${fmt(r.logR,1)} reducciones log`,`t partícula rápida ${fmt(r.tFast,1)} s · aroma ${fmt(r.aroma,1)} %`,r.logR>=5?"ok":"bad"],[[(ST.hold.valve||{x:9.6}).x,(ST.hold.top||2)+0.15,-3.1],pasOk?"Flujo a envasado":"Desviación al tanque","",pasOk?"ok":"bad"]]});
+  steps.push({k:"pack",title:"Enfriamiento y envasado",text:ok?`El néctar se enfría y llena botellas de 300 mL. El lote queda liberado con ${stars} estrella${stars>1?"s":""}.`:"El lote no cumple: la llenadora se detiene y el producto queda retenido.",
+    flows:[flow(P_PACK,{n:14,speed:0.8,color:0xE2A23A})],bottles:ok,lamp:ok?0x3cff8a:0xff3b2f,blink:!ok,
+    labels:[[[15.6,2.7,-3.2],ok?"Lote liberado":"Lote retenido",ok?`${"★".repeat(stars)} · ${cop(r.costKg)}/kg`:"No se envasa",ok?"ok":"bad"]]});
+  return steps.map(x=>({...x,cam:camOf(x.k)}))}
+
+function startTour(m,r,stars,after){
+  const steps=tourSteps(m,r,stars);const STEP=6.5;
+  TOUR={steps,i:0,t:0,STEP,after,from:camera.position.clone(),fromQ:camera.quaternion.clone()};
+  producing=steps.length*STEP+1;
+  ORDER.forEach(k=>{markers[k].g.visible=false});
+  $("#tour").hidden=false;$("#help").hidden=true;$("#operate").hidden=true;$(".reticle").hidden=true;$("#joy").hidden=true;
+  enterStep();
+}
+function enterStep(){const st=TOUR.steps[TOUR.i];LABELS.forEach(L=>L.visible=false);
+  (st.labels||[]).forEach((l,j)=>label(j,l[0],l[1],l[2],l[3]));
+  valveLamp.visible=false;
+  if(st.valve!==undefined&&ST.hold.valve){valveLamp.position.set(ST.hold.valve.x,ST.hold.valve.y+0.5,ST.hold.valve.z);valveLamp.material.color.setHex(st.valve?0x3cff8a:0xff3b2f);valveLamp.visible=true}
+  if(st.k==="heat"&&st.lamp)boilerLamp.material.color.setHex(st.lamp);
+  if(st.k==="pack"&&st.lamp)fillerLamp.material.color.setHex(st.lamp);
+  if(st.k==="pack")bottles.forEach(b=>{b.children[0].scale.y=b.position.x<15.6?0.02:1});
+  $("#tourStep").textContent=`${ST[st.k].name} · ${TOUR.i+1} de ${TOUR.steps.length}`;$("#tourTitle").textContent=st.title;$("#tourText").textContent=st.text;
+  $("#tourDots").innerHTML=TOUR.steps.map((_,j)=>`<i class="${j<TOUR.i?"done":j===TOUR.i?"on":""}"></i>`).join("");
+  $("#tourNext").textContent=TOUR.i<TOUR.steps.length-1?"Siguiente equipo":"Ver informe";
+  TOUR.from=camera.position.clone();TOUR.fromQ=camera.quaternion.clone();TOUR.t=0;
+}
+const _q=new THREE.Quaternion(),_m4=new THREE.Matrix4(),_up=new THREE.Vector3(0,1,0);
+function updateTour(dt){const st=TOUR.steps[TOUR.i];TOUR.t+=dt;const u=Math.min(1,TOUR.t/TOUR.STEP);
+  const a=st.cam.a0-0.35+0.7*u,e=0.3,R=st.cam.r;const target=new THREE.Vector3(st.cam.c.x+R*Math.cos(e)*Math.sin(a),Math.min(3.3,st.cam.c.y+R*Math.sin(e)+0.3),st.cam.c.z+R*Math.cos(e)*Math.cos(a));
+  const k=Math.min(1,TOUR.t/0.9),ease=k*k*(3-2*k);
+  camera.position.copy(TOUR.from).lerp(target,ease);_m4.lookAt(target,st.cam.c,_up);_q.setFromRotationMatrix(_m4);camera.quaternion.copy(TOUR.fromQ).slerp(_q,ease);
+  if(ease>=1){camera.position.copy(target);camera.lookAt(st.cam.c)}
+  drawFlows(st.flows||[],T);
+  if(st.upd)st.upd(u);
+  if(st.agit)agitator.rotation.y+=dt*14;
+  if(st.spin){pulperShaft.rotation.x+=dt*22;pulperShaft2.rotation.x+=dt*22}
+  if(st.blink){const on=Math.sin(T*10)>0;(st.k==="heat"?boilerLamp:fillerLamp).material.color.setHex(on?0xff3b2f:0x3a0a08)}
+  if(st.k==="pack"){bottles.forEach(b=>{if(st.bottles){b.position.x+=dt*0.9;if(b.position.x>19.2){b.position.x-=6;b.children[0].scale.y=0.02}if(b.position.x>15.45&&b.position.x<15.85)b.children[0].scale.y=Math.min(1,(b.position.x-15.45)/0.4)}})}
+  if(valveLamp.visible&&st.valve===false)valveLamp.material.color.setHex(Math.sin(T*10)>0?0xff3b2f:0x3a0a08);
+  if(TOUR.t>=TOUR.STEP)nextStep();
+}
+function nextStep(){if(!TOUR)return;if(TOUR.i<TOUR.steps.length-1){TOUR.i++;enterStep()}else endTour()}
+function endTour(){if(!TOUR)return;const last=TOUR.steps[TOUR.steps.length-1].k,after=TOUR.after;TOUR=null;producing=0;
+  LABELS.forEach(L=>L.visible=false);PFLOW.reset();valveLamp.visible=false;boilerLamp.material.color.setHex(0x3cff8a);fillerLamp.material.color.setHex(0x3cff8a);
+  bottles.forEach(b=>{b.children[0].scale.y=1});levelTube.liq.scale.y=Math.max(0.001,levelTube.h*0.35);
+  $("#tour").hidden=true;$("#help").hidden=false;$(".reticle").hidden=false;$("#joy").hidden=false;
+  const v=viewOf(last);player.x=v.p[0];player.z=v.p[2];const dx=v.l[0]-v.p[0],dz=v.l[2]-v.p[2];player.yaw=Math.atan2(-dx,-dz);player.pitch=-0.05;
+  after()}
+
 
 // Marcadores de objetivo
 const markers={};
@@ -998,20 +1367,20 @@ ORDER.forEach(k=>{const s=ST[k];const g=new THREE.Group();
   g.position.set(s.x,0,s.qa?7.4:-2.9);g.visible=false;scene.add(g);markers[k]={g,gem,ring}});
 
 // Vista de inspección
-const INSPECT={rec:{c:[-15,1.3,-5.2],r:6.5},mix:{c:[-8.6,2.0,-4.2],r:4.4},reg:{c:[-3.6,1.0,-3.9],r:3.0},heat:{c:[1.4,1.4,-5.8],r:5.2},hold:{c:[7.4,1.3,-3.4],r:4.2},pack:{c:[15.2,1.3,-3.4],r:4.0},qa:{c:[10,1.1,9.0],r:2.8,a0:Math.PI}};
+const INSPECT={frec:{c:[-39.8,1.0,-4.8],r:5.2},fsel:{c:[-35.6,1.2,-4.0],r:4.3},fwash:{c:[-30.0,1.0,-4.3],r:4.4},fstore:{c:[-26,1.6,-7.4],r:5.8},fpulp:{c:[-22.6,1.2,-4.0],r:3.8},rec:{c:[-15,1.3,-5.2],r:6.5},mix:{c:[-8.6,2.0,-4.2],r:4.4},reg:{c:[-3.6,1.0,-3.9],r:3.0},heat:{c:[1.4,1.4,-5.8],r:5.2},hold:{c:[7.4,1.3,-3.4],r:4.2},pack:{c:[15.2,1.3,-3.4],r:4.0},qa:{c:[10,1.1,9.0],r:2.8,a0:Math.PI}};
 
 // ================== CÁMARA Y CONTROLES ==================
-const player={x:-17,z:3.5,yaw:-Math.PI/2,pitch:-0.05};const EYE=1.65;
+const player={x:-41.5,z:3.5,yaw:-Math.PI/2,pitch:-0.05};const EYE=1.65;
 const viewOf=k=>{const s=ST[k];return s.qa?{p:[s.x,EYE,5.4],l:[s.x,1.6,9.5]}:{p:[s.x,EYE,1.6],l:[s.x,1.6,-4.2]}};
 let tween=null;
 function goTo(k){const v=viewOf(k);const dx=v.l[0]-v.p[0],dy=v.l[1]-v.p[1],dz=v.l[2]-v.p[2];
   const yaw=Math.atan2(-dx,-dz),pitch=Math.atan2(dy,Math.hypot(dx,dz));
   let dyaw=yaw-player.yaw;dyaw=Math.atan2(Math.sin(dyaw),Math.cos(dyaw));
   tween={t:0,dur:0.9,from:{...player},to:{x:v.p[0],z:v.p[2],yaw:player.yaw+dyaw,pitch},after:k}}
-function collide(){player.x=Math.max(-19.4,Math.min(19.4,player.x));player.z=Math.max(-1.75,Math.min(9.3,player.z));
+function collide(){player.x=Math.max(-43.4,Math.min(19.4,player.x));player.z=Math.max(-1.75,Math.min(9.3,player.z));
   if(player.x>5.6&&player.x<14.4&&player.z>7.9)player.z=7.9}
 const keys={};const isTyping=e=>/INPUT|SELECT|TEXTAREA/.test(e.target.tagName);
-addEventListener("keydown",e=>{if(isTyping(e))return;keys[e.code]=true;if(orbit)return;
+addEventListener("keydown",e=>{if(isTyping(e))return;if(TOUR){if(e.code==="Escape")endTour();else if(e.code==="Space"||e.code==="ArrowRight"||e.code==="Enter"){e.preventDefault();nextStep()}return}keys[e.code]=true;if(orbit)return;
   if(e.code==="KeyE"&&near&&!uiOpen())openStation(near);if(e.code==="Escape"){if(orbit)exitInspect();else closeAll()}});
 addEventListener("keyup",e=>{keys[e.code]=false});
 let drag=null;let orbit=null;
@@ -1043,14 +1412,14 @@ function nearest(){let best=null,bd=3.4;ORDER.forEach(k=>{const v=viewOf(k);cons
 
 // ================== UI ==================
 const sheet=$("#sheet"),modal=$("#modal"),card=$("#card"),regEl=$("#reg"),docEl=$("#doc");
-const uiOpen=()=>!sheet.hidden||!modal.hidden||!regEl.hidden||!docEl.hidden;
+const uiOpen=()=>!!TOUR||!sheet.hidden||!modal.hidden||!regEl.hidden||!docEl.hidden;
 function closeAll(){sheet.hidden=true;modal.hidden=true}
 let tt;function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("show"),2800)}
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const PM=Object.fromEntries(PRICE_META.map(p=>[p[0],p]));
-const priceTxt=k=>`${cop(PR[k])}${PM[k][2]==="$/h"?"/h":"/kg"}`;
+const priceTxt=k=>`${cop(PR[k])}${({"$/h":"/h","$/L":"/L"})[PM[k][2]]||"/kg"}`;
 const firstName=n=>String(n||"").trim().split(/\s+/)[0]||"";
-$("#bMission").onclick=()=>showTurnos();$("#bEq").onclick=()=>showEquipos();$("#bMan").onclick=()=>showManual();$("#bTeam").onclick=()=>showTeam();
+$("#bMission").onclick=()=>showTurnos();$("#bEq").onclick=()=>showEquipos();$("#bMan").onclick=()=>showManual();$("#bTeam").onclick=()=>showTeam();$("#tourNext").onclick=()=>nextStep();$("#tourSkip").onclick=()=>endTour();$("#bQ").onclick=()=>showQuality();
 modal.addEventListener("pointerdown",e=>{if(e.target===modal)modal.hidden=true});
 
 function renderHud(){
@@ -1058,8 +1427,8 @@ function renderHud(){
   $("#mTitle").textContent=`Turno ${i+1} · ${m.product}`;
   $("#mSub").innerHTML=`${esc(m.sub)} · ${esc(m.client)} · <span class="stars">${starStr(s.stars||0)}</span>`;
   let pts=0,st=0;MISSIONS.forEach(x=>{const v=save[x.id];if(v){pts+=v.pts||0;st+=v.stars||0}});
-  $("#hPts").textContent=pts.toLocaleString("es-CO");$("#hSt").textContent=st+"/18";
-  let rk="Practicante";[[4,"Operario de línea"],[8,"Analista de calidad"],[13,"Supervisor de planta"],[17,"Jefe de producción"]].forEach(([n,l])=>{if(st>=n)rk=l});$("#hRank").textContent=rk;
+  $("#hPts").textContent=pts.toLocaleString("es-CO");$("#hSt").textContent=st+"/"+MISSIONS.length*3;
+  let rk="Practicante";[[0.22,"Operario de línea"],[0.44,"Analista de calidad"],[0.72,"Supervisor de planta"],[0.94,"Jefe de producción"]].forEach(([n,l])=>{if(st>=Math.round(n*MISSIONS.length*3))rk=l});$("#hRank").textContent=rk;
   $("#bTeam").textContent=profile?profile.integrantes.map(x=>firstName(x.nombre)).join(" y "):"Equipo";
   renderObjective();
 }
@@ -1082,7 +1451,7 @@ function pricesHTML(m,keys){keys=keys||m.priceKeys||[];if(!keys.length)return ""
 function pulpCertHTML(m){if(!m.pulpLots)return "";
   const rows=m.pulpLots.map(([lbl,f,bx,ta])=>{const F=FR[f];const okB=bx>=F.tabBx,okA=ta>=F.tabTA;
     return `<tr><td>${esc(lbl)}</td><td>${fmt(bx,1)}</td><td>${fmt(F.tabBx,1)}</td><td>${fmt(ta,2)}</td><td>${fmt(F.tabTA,2)}</td><td class="${okB&&okA?"okc":"koc"}">${okB&&okA?"Conforme":"No conforme"}</td></tr>`}).join("");
-  return `<div class="cert"><div class="eyebrow">Certificado de la pulpa frente a la Tabla 1 (requisitos de la pulpa)</div>
+  return `<div class="cert"><div class="eyebrow">${m.kind==="pulpa"?"Análisis del jugo del lote frente a la Tabla 1 (requisitos de la pulpa)":"Certificado de la pulpa frente a la Tabla 1 (requisitos de la pulpa)"}</div>
    <div class="tbl"><table><thead><tr><th>Lote</th><th>°Bx</th><th>mín.</th><th>Acidez %</th><th>mín.</th><th>Tabla 1</th></tr></thead><tbody>${rows}</tbody></table></div>
    <p class="note">La Tabla 1 aplica a la pulpa como producto. Una pulpa no conforme puede usarse como materia prima, pero el néctar debe cumplir la Tabla 8 (pulpa mínima y sólidos aportados por la fruta) y la Tabla 9.</p></div>`}
 
@@ -1092,13 +1461,14 @@ function openStation(k){
   visited.add(k);renderObjective();
   const ins=m.inputs.filter(i=>i.st===k);
   let body=`<p class="info">${s.info}</p>`;
-  if(k==="rec")body+=pulpCertHTML(m);
+  if((k==="rec"&&m.kind!=="pulpa")||(k==="frec"&&m.kind==="pulpa"))body+=pulpCertHTML(m);
+  if(m.stationNotes&&m.stationNotes[k])body+=`<div class="callout"><p class="note" style="margin:0;color:var(--ink)">${m.stationNotes[k]}</p></div>`;
   if(k==="mix")body+=`<div class="chips">${m.lot.map(([a,b])=>`<span class="chip">${a}: <b>${b}</b></span>`).join("")}</div>`;
   if(ins.length)body+=ins.map(x=>ctrlHTML(m,x)).join("");
   else body+=`<p class="note">${(m.fixed&&m.fixed[k])||"En este turno no se ajusta este equipo. Obsérvalo y sigue la línea."}</p>`;
   if(m.fixed&&m.fixed[k]&&ins.length)body+=`<p class="note">${m.fixed[k]}</p>`;
   if(k==="mix"||(k==="hold"&&m.id==="m4"))body+=`<div class="live" id="live"></div>`;
-  if(k==="mix"||k==="rec")body+=pricesHTML(m,(m.priceKeys||[]).filter(x=>!/^vapor|^placas/.test(x)));
+  if(k==="mix"||k==="rec"||k==="frec")body+=pricesHTML(m,(m.priceKeys||[]).filter(x=>!/^vapor|^placas/.test(x)));
   if(k==="reg")body+=pricesHTML(m,(m.priceKeys||[]).filter(x=>/^vapor|^placas/.test(x)));
   if(lastR&&lastR.mid===m.id)body+=`<div class="chips">${measure(k,lastR.r).map(([a,b])=>`<span class="chip">${a}: <b>${b}</b></span>`).join("")}</div>`;
   body+=`<button class="ghost" type="button" id="toQA">Siguiente: ${nextLabel()}</button><button class="ghost" type="button" id="inspB">Vista de inspección del equipo</button>`;
@@ -1113,7 +1483,7 @@ const nextLabel=()=>ST[nextStation()].name;
 function bindInputs(m){sheet.querySelectorAll("[data-k]").forEach(el=>{const sync=()=>{const k=el.dataset.k;let v=el.tagName==="SELECT"?el.value:parseFloat(el.value);
   if(el.tagName!=="SELECT"&&!Number.isFinite(v))return;vals[m.id][k]=v;sheet.querySelectorAll(`[data-k="${k}"]`).forEach(o=>{if(o!==el)o.value=v});refreshWorld();updateLive(m)};
   el.addEventListener("input",sync);el.addEventListener("change",sync)})}
-function updateLive(m){const el=$("#live");if(!el)return;const s=m.spec(vals[m.id]);
+function updateLive(m){const el=$("#live");if(!el)return;const s=m.spec(vals[m.id]);if(!s){el.textContent="";return}
   if(s.tube){const A=Math.PI*s.tube.D**2/4;el.innerHTML=`Área de flujo: <b>${fmt(A*1e4,2)} cm²</b> · volumen del tubo: <b>${fmt(A*s.tube.L*1000,1)} L</b> · tramos en planta: <b>${ST.hold.runs}</b>`;return}
   const Pk=s.pulps.reduce((a,p)=>a+p.kg,0),w=s.batch-Pk-s.sugar-s.citric;
   el.innerHTML=w<0?`<span style="color:var(--bad)">Los ingredientes superan la masa del lote por <b>${fmt(-w,1)} kg</b>.</span>`:`Agua de dilución calculada: <b>${fmt(w,1)} kg</b> de ${fmt(s.batch,0)} kg`}
@@ -1139,7 +1509,10 @@ function openQA(){
   $("#run").onclick=()=>run(m);
 }
 
-function measure(k,r){const s=r.s;
+function measure(k,r){
+  if(r.kind==="pulpa"){switch(k){case"frec":return [["Recibido",fmt(r.fruta,0)+" kg"],["Canastillas",fmt(Math.ceil(r.fruta/20),0)]];case"fsel":return [["Descarte",fmt(r.desc,0)+" kg"]];
+    case"fwash":return [["Cloro",fmt(r.ppm,0)+" ppm"]];case"fstore":return [["Merma",fmt(r.perd,0)+" kg"]];case"fpulp":return [["Pulpa",fmt(r.pulp,0)+" kg"],["Residuo",fmt(r.res,0)+" kg"]];}return []}
+  if(!r.s||!r.s.pulps)return [];const s=r.s;
   switch(k){case"rec":return [["Despachado",s.pulps.map(p=>fmt(p.kg,0)+" kg "+FR[p.fruit].name.toLowerCase()).join(" + ")]];
   case"mix":return [["°Brix",fmt(r.Bx,2)],["Acidez",fmt(r.TA,2)+" %"],["pH",fmt(r.pH,2)],["Fruta",fmt(r.fruitPct,1)+" %"]];
   case"reg":return [["T tras regeneración",fmt(r.Treg,1)+" °C"]];
@@ -1160,13 +1533,15 @@ function drawHMI(k){const h=HMI[k];if(!h)return;const m=M();const v=vals[m.id];c
     if(meas.length){x.fillStyle="#2E4A43";x.fillRect(14,y-14,W-28,2);y+=14;meas.slice(0,3).forEach(([a,b])=>{x.fillStyle="#9DB5AD";x.fillText(a.slice(0,18),14,y);x.fillStyle="#7DE0A6";x.textAlign="right";x.fillText(String(b).slice(0,18),W-14,y);x.textAlign="left";y+=34})}})}
 function drawQA(){const m=M(),i=MISSIONS.indexOf(m),s=save[m.id]||{};
   qaScreen.redraw((x,W,H)=>{x.fillStyle="#0B1A17";x.fillRect(0,0,W,H);x.fillStyle="#E29B00";x.fillRect(0,0,W,10);
-    x.fillStyle="#9DB5AD";x.font="700 26px Atkinson Hyperlegible,sans-serif";x.fillText("ORDEN DE PRODUCCIÓN · TURNO "+(i+1)+" DE 6",30,58);
+    x.fillStyle="#9DB5AD";x.font="700 26px Atkinson Hyperlegible,sans-serif";x.fillText("ORDEN DE PRODUCCIÓN · TURNO "+(i+1)+" DE "+MISSIONS.length,30,58);
     x.fillStyle="#fff";x.font="800 40px Unbounded,Arial Black,sans-serif";x.fillText(m.product,30,112);
     x.font="600 24px JetBrains Mono,monospace";let y=168;m.order.slice(1,7).forEach(([a,b],j)=>{const cx=30+(j%2)*430,cy=y+Math.floor(j/2)*42;x.fillStyle="#9DB5AD";x.fillText(a.slice(0,14),cx,cy);x.fillStyle="#F2B42A";x.fillText(b.slice(0,18),cx+190,cy)});
     x.fillStyle="#E29B00";x.font="40px sans-serif";x.fillText("★".repeat(s.stars||0),30,H-40);x.fillStyle="#2E4A43";x.fillText("★".repeat(3-(s.stars||0)),30+40*(s.stars||0),H-40);
     if(lastR&&lastR.mid===m.id){x.fillStyle=lastR.stars?"#7DE0A6":"#F0796B";x.font="800 30px Unbounded,sans-serif";x.textAlign="right";x.fillText(lastR.stars?"LOTE LIBERADO":"LOTE RETENIDO",W-30,H-44);x.textAlign="left"}})}
 function refreshWorld(){const m=M();initVals(m);const v=vals[m.id];
-  const col=m.id==="m6"?0xF4A812:FR[m.fruit].col;mat.nectar.color.setHex(col);
+  const col=m.id==="m6"?0xF4A812:FR[m.fruit].col;mat.nectar.color.setHex(col);fruitMat.color.setHex(m.id==="m6"?0xF2B705:FR[m.fruit].col);
+  const dig=(api,txt)=>api.redraw((x,W,H)=>{x.fillStyle="#0a1210";x.fillRect(0,0,W,H);x.fillStyle="#58f08a";x.font=`700 ${Math.round(H*0.62)}px JetBrains Mono, monospace`;x.textAlign="right";x.textBaseline="middle";x.fillText(txt,W-10,H/2)});
+  dig(scaleDisp,m.kind==="pulpa"?fmt(v.fruta,0)+" kg":"0 kg");dig(storeDisp,(m.kind==="pulpa"?fmt(v.Tst,1):"8,5")+" °C");
   if(m.id==="m4")buildHold(PIPES[v.D],v.L);else if(ST.hold.built!==m.id)buildHold(0.0475,12);ST.hold.built=m.id;
   const lots=m.id==="m2"?[["LOTE A","Mango 10,8 °Bx"],["LOTE B","Mango 14,2 °Bx"]]:m.id==="m6"?[["MANGO A","10,8 °Bx"],["MARACUYÁ","11,4 °Bx"]]:[[FR[m.fruit].name.toUpperCase(),m.lot[0][1].split(" · ").find(t=>/°Bx/.test(t))||""],["RESERVA","—"]];
   ST.rec.labels.forEach((L,i)=>L.redraw((x,W,H)=>{const sel=m.id==="m2"&&v.lote===(i?"B":"A");x.fillStyle=sel?"#E29B00":"#fff";x.fillRect(0,0,W,H);x.strokeStyle="#14302A";x.lineWidth=6;x.strokeRect(3,3,W-6,H-6);
@@ -1175,11 +1550,11 @@ function refreshWorld(){const m=M();initVals(m);const v=vals[m.id];
 
 // ---- producir ----
 function run(m){
-  const s=m.spec(vals[m.id]);const Pk=s.pulps.reduce((a,p)=>a+p.kg,0);
-  if(s.batch-Pk-s.sugar-s.citric<-1e-9){toast("El lote no cierra: los ingredientes superan la masa del lote.");return}
+  const s=m.evaluate?null:m.spec(vals[m.id]);
+  if(s){const Pk=s.pulps.reduce((a,p)=>a+p.kg,0);if(s.batch-Pk-s.sugar-s.citric<-1e-9){toast("El lote no cierra: los ingredientes superan la masa del lote.");return}}
   const btn=$("#run");if(btn){btn.disabled=true;btn.textContent="Analizando el lote…"}
   setTimeout(()=>{
-  const r=simulate(s);const checks=[...legal(r),...m.checks(r)];
+  let r,checks;if(m.evaluate){({r,checks}=m.evaluate(vals[m.id]))}else{r=simulate(s);checks=[...legal(r),...m.checks(r)]}
   const pv=parseFloat(String(pred).replace(",","."));const real=m.predict.get(r);
   const predOk=Number.isFinite(pv)&&(m.predict.abs?Math.abs(pv-real)<=m.predict.tol+1e-9:Math.abs(pv-real)<=m.predict.tol*Math.abs(real));
   checks.push({cat:"efic",label:"Predicción de la bitácora acertada",ok:predOk,d:Number.isFinite(pv)?`tú ${fmt(pv,2)} · planta ${fmt(real,2)}`:"sin predicción",h:Number.isFinite(pv)?"Revisa tu cálculo con el manual de planta.":"Escribe tu cálculo antes de producir."});
@@ -1194,16 +1569,21 @@ function run(m){
     prediccion_ok:yes(predOk),inocuidad_ok:yes(pass("seg")),norma_ok:yes(pass("norma")),cliente_ok:yes(pass("cliente")),eficiencia_ok:yes(pass("efic")),
     fallas:checks.filter(c=>!c.ok).map(c=>c.label).join(" | "),costo_kg:Math.round(r.costKg),variables:JSON.stringify(vals[m.id])});
   lastR={mid:m.id,r,stars};
-  sheet.hidden=true;goTo("pack");producing=3.4;
-  setTimeout(()=>{refreshWorld();renderHud();showReport(m,r,checks,stars,pts,prev)},3500)},30);
+  closeAll();tween=null;refreshWorld();
+  startTour(m,r,stars,()=>{refreshWorld();renderHud();showReport(m,r,checks,stars,pts,prev)})},30);
 }
-function tiles(m,r){const s=r.s,T=[];const has=k=>required(m).includes(k);
+function tiles(m,r){if(r.kind==="pulpa"){return [["Fruta recibida",fmt(r.fruta,0)+" kg"],["Descarte (8 %)",fmt(r.desc,0)+" kg"],["Merma en el cuarto",fmt(r.perd,0)+" kg"],["Fruta a despulpar",fmt(r.lav,0)+" kg"],["Pulpa refinada",fmt(r.pulp,0)+" kg"],["Cáscara y semilla",fmt(r.res,0)+" kg"],["Rendimiento global",fmt(r.pulp/r.fruta*100,1)+" %"],["Cloro libre",fmt(r.ppm,0)+" ppm"]].map(([a,b])=>`<div class="tile"><span>${a}</span><b>${b}</b></div>`).join("")}
+  const s=r.s,T=[];const has=k=>required(m).includes(k);
   if(has("mix")||has("rec"))T.push(["°Brix",fmt(r.Bx,2)],["Acidez",fmt(r.TA,2)+" %"],["pH (est.)",fmt(r.pH,2)],["Fruta",fmt(r.fruitPct,1)+" %"],["Sól. de fruta",fmt(r.fsolPct,2)+" %"],["Agua",fmt(r.water,1)+" kg"]);
   if(s.tube)T.push(["v media",fmt(r.v,3)+" m/s"],["Reynolds",fmt(r.Re,0)],["Régimen",r.Re<2100?"laminar":"turbulento"],["t rápida",fmt(r.tFast,1)+" s"],["t media",fmt(r.tMean,1)+" s"]);
   if(has("heat")||has("hold"))T.push(["D a "+fmt(s.T,1)+" °C",fmt(r.Dm*60,2)+" s"],["Reducción",fmt(r.logR,1)+" log"],["Aroma",fmt(r.aroma,1)+" %"]);
   if(has("reg"))T.push(["c_p",fmt(r.cp,3)+" kJ/kg·K"],["T tras regen.",fmt(r.Treg,1)+" °C"],["Calor",fmt(r.Qh/3600,0)+" kW"],["Vapor",fmt(r.steam,0)+" kg/h"],["Energía",cop(r.costH)+"/h"]);
   return T.map(([a,b])=>`<div class="tile"><span>${a}</span><b>${b}</b></div>`).join("")}
-function costHTML(m,r){if(!(m.priceKeys||[]).some(k=>/^pulpa|azucar/.test(k)))return "";
+function costHTML(m,r){if(r.kind==="pulpa"){const rows=r.costItems.map(([n,q,p,u])=>`<tr><td>${esc(n)}</td><td>${fmt(q,u==="L"?2:0)} ${u}</td><td>${cop(p)}/${u}</td><td>${cop(q*p)}</td></tr>`).join("");
+   return `<div><div class="grp" style="margin-top:0">Costeo de la pulpa producida</div><div class="tbl"><table><thead><tr><th>Concepto</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th></tr></thead><tbody>${rows}
+   <tr class="tot"><td>Total</td><td></td><td></td><td>${cop(r.raw)}</td></tr><tr class="tot"><td>Costo de materia prima por kg de pulpa</td><td>${fmt(r.pulp,0)} kg</td><td></td><td>${cop(r.costKg)}/kg</td></tr>
+   <tr><td>Referencia: pulpa de maracuyá comprada a proveedor</td><td></td><td></td><td>${cop(PR.pulpa_maracuya)}/kg</td></tr></tbody></table></div><p class="note">No incluye mano de obra, energía ni depreciación de la línea de despulpado.</p></div>`}
+if(!(m.priceKeys||[]).some(k=>/^pulpa|azucar/.test(k)))return "";
   const rows=r.costItems.filter(c=>c[1]>0).map(([n,kg,p])=>`<tr><td>${esc(n)}</td><td>${fmt(kg,1)}</td><td>${cop(p)}</td><td>${cop(kg*p)}</td></tr>`).join("");
   const en=m.id==="m6"?`<tr><td>Energía (vapor + regenerador, ${fmt(r.s.batch/r.s.flow,1)} h)</td><td></td><td>${cop(r.costH)}/h</td><td>${cop(r.energy)}</td></tr>`:"";
   const tot=m.id==="m6"?r.cost:r.raw;
@@ -1212,22 +1592,22 @@ function costHTML(m,r){if(!(m.priceKeys||[]).some(k=>/^pulpa|azucar/.test(k)))re
 function showReport(m,r,checks,stars,pts,prev){
   const head=["Lote retenido","Lote aprobado","Cliente satisfecho","Proceso ejemplar"][stars];
   const sub=["Hay fallas de inocuidad o de norma. El lote no puede salir de planta.","Cumple la norma, pero no lo que pidió el cliente.","Cumple norma y cliente. Falta eficiencia o la predicción.","Inocuo, legal, a gusto del cliente, eficiente y bien calculado."][stars];
-  const names={seg:"Inocuidad y operación",norma:"Resolución 3929 de 2013 (néctar)",cliente:"Especificación del cliente",efic:"Eficiencia y cálculo"};
+  const names={seg:"Inocuidad y operación",norma:m.kind==="pulpa"?"Resolución 3929 de 2013 (pulpa)":"Resolución 3929 de 2013 (néctar)",cliente:"Especificación del cliente",efic:"Eficiencia y cálculo"};
   let h=`<div class="card-h"><div><div class="eyebrow">Informe del laboratorio de calidad · ${esc(m.product)}</div><h2>${head}</h2></div><button class="x" type="button" aria-label="Cerrar">×</button></div><div class="card-b">
    <div class="verdict"><div class="big">${starStr(stars)}</div><p>${sub} · <span class="num">+${pts} pts</span> · intento ${save.attempts[m.id]}</p></div><div class="tiles">${tiles(m,r)}</div>${costHTML(m,r)}<div class="checks">`;
   ["seg","norma","cliente","efic"].forEach(c=>{const L=checks.filter(x=>x.cat===c);if(!L.length)return;
     h+=`<div class="grp">${names[c]}</div>`+L.map(x=>`<div class="chk${x.ok?"":" ko"}"><i>${x.ok?"✓":"✕"}</i><div><div>${x.label} <span class="d">· ${x.d}</span></div>${x.ok?"":`<div>${x.h}</div>`}</div></div>`).join("")});
-  const i=MISSIONS.indexOf(m);const canNext=stars>=1&&i<5;
+  const i=MISSIONS.indexOf(m);const canNext=stars>=1&&i<MISSIONS.length-1;
   h+=`</div><div class="row"><button class="ghost" id="again">Volver a la planta y ajustar</button>${canNext?`<button class="go" id="next">Siguiente turno</button>`:""}</div></div>`;
   card.innerHTML=h;modal.hidden=false;
   card.querySelector(".x").onclick=()=>modal.hidden=true;$("#again").onclick=()=>modal.hidden=true;
   if(canNext)$("#next").onclick=()=>selectMission(MISSIONS[i+1].id);
-  if(stars>=1&&i<5&&!(prev.stars>=1))toast(`Turno ${i+2} desbloqueado`);
+  if(stars>=1&&i<MISSIONS.length-1&&!(prev.stars>=1))toast(`Turno ${i+2} desbloqueado`);
 }
 
 // ---- modales ----
 function showBrief(m){const i=MISSIONS.indexOf(m);
-  card.innerHTML=`<div class="card-h"><div><div class="eyebrow">Turno ${i+1} de 6 · ${esc(m.sub)} · Cliente: ${esc(m.client)}</div><h2>Orden de producción: ${esc(m.product)}</h2></div><button class="x" type="button" aria-label="Cerrar">×</button></div>
+  card.innerHTML=`<div class="card-h"><div><div class="eyebrow">Turno ${i+1} de ${MISSIONS.length} · ${esc(m.sub)} · Cliente: ${esc(m.client)}</div><h2>Orden de producción: ${esc(m.product)}</h2></div><button class="x" type="button" aria-label="Cerrar">×</button></div>
   <div class="card-b"><div class="two"><div style="display:flex;flex-direction:column;gap:12px"><p>${m.brief}</p><div class="concept">${m.concept}</div>
    <div><div class="eyebrow" style="margin-bottom:6px">Equipos que debes ajustar</div><div class="chips">${required(m).map(k=>`<span class="chip">${ST[k].name}</span>`).join("")}<span class="chip">${ST.qa.name}</span></div></div>
    ${pricesHTML(m)}</div>
@@ -1261,6 +1641,12 @@ function showManual(){
    <li><b>Tabla 8 · néctar:</b> porcentaje mínimo de pulpa en el néctar y porcentaje mínimo de sólidos solubles que la fruta aporta al néctar. En mango, maracuyá y lulo equivale a % de pulpa × °Brix mínimo de la Tabla 1 (maracuyá: 15 % × 12,0 °Bx = 1,80 %).</li>
    <li><b>Tabla 9 · néctar terminado:</b> °Brix ≥ 10, pH entre 2,5 y 4,6 y acidez titulable ≥ 0,2 % como ácido cítrico.</li></ul>
    <p class="note">Si la pulpa trae menos °Brix que la Tabla 1, el porcentaje mínimo de pulpa de la Tabla 8 no alcanza para aportar los sólidos de fruta exigidos.</p></div>
+  <div class="callout" style="background:var(--good-soft)"><h4>Zona de fruta fresca: de la fruta a la pulpa</h4>
+   <ul><li><b>Mermas en serie:</b> pulpa = fruta × (1 − descarte) × (1 − merma en el cuarto) × rendimiento de despulpado. Para despejar la fruta a recibir, divide la pulpa requerida entre ese producto.</li>
+   <li><b>Rendimiento de referencia:</b> la pulpa corresponde al 32 % del peso fresco del maracuyá (Cerquera-Peña, Parra-Coronado y Camacho-Tamayo, 2012, <i>Rev. Colomb. Cienc. Hortíc.</i> 6(2), doi:10.17584/rcch.2012v6i2.1975). En el juego, ese valor corresponde al tamiz de 1,5 mm; los de 3,0 y 0,8 mm son valores didácticos.</li>
+   <li><b>Desinfección:</b> 100 a 200 ppm de cloro, pH del agua entre 6 y 7 y 3 a 10 minutos de contacto. Dosis (mL) = V (L) × ppm ÷ (10 × % del producto comercial) (LIPA, Universidad Nacional de La Plata).</li>
+   <li><b>Almacenamiento del maracuyá:</b> 7 a 10 °C y 90 a 95 % de HR para fruta parcialmente madura (3 a 5 semanas); 5 a 7 °C para fruta madura (1 semana). A 5 °C o menos aparece daño por frío: pardeamiento, picado, zonas acuosas y pudriciones (Kader, Postharvest Center, UC Davis). Las mermas por temperatura que usa el juego son didácticas.</li>
+   <li><b>Despulpado:</b> un tamiz grueso aumenta el rendimiento pero deja pasar semilla fracturada, que oscurece la pulpa y le da amargor.</li></ul></div>
   <div class="mcols">
    <div><h4>Balance de materia</h4><div class="eq">m_agua = m_lote − Σm_pulpa − m_azúcar − m_ácido</div><div class="eq">°Bx = (Σ m_p·Bx_p/100 + m_azúcar + m_ácido)/m_lote × 100</div><div class="eq">AT (%) = (Σ m_p·AT_p/100 + m_ácido)/m_lote × 100</div><div class="eq">Sólidos de fruta (%) = Σ m_p·Bx_p / m_lote</div><p class="note">pH estimado con un modelo empírico didáctico: pH ≈ 3,55 − 0,85·log₁₀(AT/0,3).</p></div>
    <div><h4>Pasteurización</h4><div class="eq">D_T = D_ref·10^((T_ref − T)/z)</div><div class="eq">Reducciones log = t/D_T</div><div class="eq">Retención aroma = 10^(−t/D_T,aroma)</div><p class="note">Meta: 5 reducciones log (criterio 5-log del HACCP para jugos, 21 CFR 120.24). Parámetros ilustrativos: microorganismo D₈₅ = 0,08 min, z = 7 °C; aroma D₈₅ = 6 min, z = 25 °C.</p></div>
@@ -1308,7 +1694,7 @@ $("#regForm").addEventListener("submit",e=>{e.preventDefault();
   profile={modalidad:mod,integrantes:ints,grupo:clean($("#grp").value).slice(0,80),inicio:new Date().toISOString()};
   SS.set("nectarlab-sesion",profile);LS.set("nectarlab-ultimo",profile);sessionSec=0;sessionLogged=false;
   loadTeam();vals={};visited=new Set();pred="";lastR=null;
-  cur=save._cur&&MISSIONS.find(m=>m.id===save._cur)?save._cur:"m1";
+  cur=save._cur&&MISSIONS.find(m=>m.id===save._cur)?save._cur:MISSIONS[0].id;
   regEl.hidden=true;logEvent({tipo:"ingreso"});
   refreshWorld();renderHud();showBrief(M());
 });
@@ -1372,7 +1758,7 @@ function renderPanel(){
    <div><span>Predicciones acertadas</span><b>${nAtt?Math.round(pOk/nAtt*100):0} %</b></div><div><span>Tiempo activo total</span><b>${hms(tTot)}</b></div></div>
   <section><div class="sec-h"><h3>Resumen por estudiante</h3><button class="ghost" id="xEst" type="button">Exportar CSV</button></div>
    <div class="tbl"><table class="dt"><thead><tr><th>Nombre</th><th>Código</th><th>Compañero(s)</th><th>Grupo</th>${MISSIONS.map((m,i)=>`<th title="${esc(m.product)}">T${i+1}</th>`).join("")}<th>Turnos ≥1★</th><th>Estrellas</th><th>Puntos</th><th>Intentos</th><th>Aciertos predicción</th><th>Tiempo activo</th><th>Última actividad</th></tr></thead>
-   <tbody>${S.length?S.map(s=>`<tr><td>${esc(s.nombre)}</td><td>${esc(s.codigo)}</td><td style="text-align:left">${esc([...s.companeros].join(", ")||"—")}</td><td style="text-align:left">${esc(s.grupo||"—")}</td>${MISSIONS.map(m=>`<td class="st">${s.best[m.id]?"★".repeat(s.best[m.id].s)||"0":"·"}</td>`).join("")}<td>${s.done}/6</td><td>${s.stars}/18</td><td>${s.pts}</td><td>${s.att}</td><td>${s.att?Math.round(s.pred/s.att*100):0} %</td><td>${hms(s.time)}</td><td>${fdate(s.last)}</td></tr>`).join(""):`<tr><td colspan="${MISSIONS.length+11}" style="text-align:left">Aún no hay registros. Cuando los estudiantes ingresen y produzcan lotes, aparecerán aquí.</td></tr>`}</tbody></table></div></section>
+   <tbody>${S.length?S.map(s=>`<tr><td>${esc(s.nombre)}</td><td>${esc(s.codigo)}</td><td style="text-align:left">${esc([...s.companeros].join(", ")||"—")}</td><td style="text-align:left">${esc(s.grupo||"—")}</td>${MISSIONS.map(m=>`<td class="st">${s.best[m.id]?"★".repeat(s.best[m.id].s)||"0":"·"}</td>`).join("")}<td>${s.done}/${MISSIONS.length}</td><td>${s.stars}/${MISSIONS.length*3}</td><td>${s.pts}</td><td>${s.att}</td><td>${s.att?Math.round(s.pred/s.att*100):0} %</td><td>${hms(s.time)}</td><td>${fdate(s.last)}</td></tr>`).join(""):`<tr><td colspan="${MISSIONS.length+11}" style="text-align:left">Aún no hay registros. Cuando los estudiantes ingresen y produzcan lotes, aparecerán aquí.</td></tr>`}</tbody></table></div></section>
   <section><div class="sec-h"><h3>Dificultad por turno</h3><button class="ghost" id="xTur" type="button">Exportar CSV</button></div>
    <div class="tbl"><table class="dt"><thead><tr><th>Turno</th><th>Equipos</th><th>Lotes</th><th>Lotes retenidos</th><th>Intentos hasta liberar</th><th>Tiempo hasta liberar</th><th>Estrellas promedio</th><th>Predicción acertada</th><th>Falla más frecuente</th></tr></thead>
    <tbody>${A.turns.map((t,i)=>`<tr><td>T${i+1} · ${esc(t.m.product)}</td><td>${t.teams}</td><td>${t.att}</td><td>${Math.round(t.rej*100)} %</td><td>${t.triesToOk===null?"—":fmt(t.triesToOk,1)}</td><td>${t.timeToOk===null?"—":hms(t.timeToOk)}</td><td>${t.avgBest===null?"—":fmt(t.avgBest,1)}</td><td>${Math.round(t.pred*100)} %</td><td style="text-align:left">${esc(t.top)}</td></tr>`).join("")}</tbody></table></div></section>
@@ -1407,7 +1793,7 @@ const stamp=()=>{const d=new Date(),p=x=>String(x).padStart(2,"0");return `${d.g
 async function saveFile(name,text){const data="﻿"+text;
   try{if(window.claude&&typeof window.claude.use==="function"){const d=await window.claude.use("downloads");if(d){try{await d.save({filename:name,data});toast("Archivo exportado");}catch(e){if(e&&e.code!=="declined")toast("No se pudo exportar el archivo en esta vista.")}return}}}catch(e){}
   try{const blob=new Blob([data],{type:"text/csv;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast("Archivo exportado")}catch(e){toast("No se pudo exportar el archivo.")}}
-function exportEst(A){const head=["Nombre","Código","Compañero(s)","Grupo",...MISSIONS.map((m,i)=>`T${i+1} ${m.product} (estrellas)`),"Turnos con al menos 1 estrella","Estrellas (de 18)","Puntos","Lotes producidos","Predicciones acertadas","% aciertos de predicción","Tiempo activo (min)","Primera actividad","Última actividad"];
+function exportEst(A){const head=["Nombre","Código","Compañero(s)","Grupo",...MISSIONS.map((m,i)=>`T${i+1} ${m.product} (estrellas)`),"Turnos con al menos 1 estrella",`Estrellas (de ${MISSIONS.length*3})`,"Puntos","Lotes producidos","Predicciones acertadas","% aciertos de predicción","Tiempo activo (min)","Primera actividad","Última actividad"];
   saveFile(`NectarLab_resumen_estudiantes_${stamp()}.csv`,csv([head,...A.students.map(s=>[s.nombre,s.codigo,[...s.companeros].join(", "),s.grupo,...MISSIONS.map(m=>s.best[m.id]?s.best[m.id].s:""),s.done,s.stars,s.pts,s.att,s.pred,s.att?Math.round(s.pred/s.att*100):0,Math.round(s.time/60*10)/10,fdate(s.first),fdate(s.last)])]))}
 function exportTur(A){const head=["Turno","Producto","Equipos","Lotes producidos","% lotes retenidos","Intentos promedio hasta liberar","Tiempo promedio hasta liberar (min)","Estrellas promedio (mejor por equipo)","% predicciones acertadas","Falla más frecuente"];
   saveFile(`NectarLab_dificultad_turnos_${stamp()}.csv`,csv([head,...A.turns.map((t,i)=>[`T${i+1}`,t.m.product,t.teams,t.att,Math.round(t.rej*100),t.triesToOk===null?"":t.triesToOk,t.timeToOk===null?"":Math.round(t.timeToOk/6)/10,t.avgBest===null?"":t.avgBest,Math.round(t.pred*100),t.top])]))}
@@ -1416,10 +1802,32 @@ function exportDet(A){saveFile(`NectarLab_registro_detallado_${stamp()}.csv`,csv
 // ================== BUCLE ==================
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=w<h?80:68;camera.updateProjectionMatrix()}
 addEventListener("resize",resize);resize();
+// ---------- calidad gráfica y medición de fluidez ----------
+const QUAL={alta:{lbl:"Alta",pr:Math.min(window.devicePixelRatio||1,1.75),sh:2048,desc:"Resolución completa y sombras nítidas. Para computadores con tarjeta de video dedicada."},
+  media:{lbl:"Media",pr:1,sh:1024,desc:"Resolución estándar y sombras suaves. Recomendada para la mayoría de computadores de sala."},
+  baja:{lbl:"Baja",pr:0.75,sh:0,desc:"Menor resolución y sin sombras. Para computadores con gráficos integrados antiguos."}};
+let QSET=LS.get("nectarlab-calidad",{mode:"auto",level:LOWEND?"media":"alta"});if(!QUAL[QSET.level])QSET={mode:"auto",level:"alta"};
+let fpsNow=0,fpsAcc=0,fpsT=0,autoT=0,autoSamples=[];
+function applyQuality(level){const q=QUAL[level];QSET.level=level;renderer.setPixelRatio(q.pr);resize();
+  const want=q.sh>0;if(renderer.shadowMap.enabled!==want){renderer.shadowMap.enabled=want;scene.traverse(o=>{if(o.material)[o.material].flat().forEach(m=>m.needsUpdate=true)})}
+  if(want){sun.shadow.mapSize.set(q.sh,q.sh);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}
+  shadowsDirty();LS.set("nectarlab-calidad",QSET)}
+applyQuality(QSET.level);
+function tickFps(dt){fpsAcc++;fpsT+=dt;if(fpsT>=0.5){fpsNow=fpsAcc/fpsT;fpsAcc=0;fpsT=0;const el=$("#qFps");if(el)el.textContent=fpsNow.toFixed(0);
+  // ajuste automático: solo con la planta visible y sin paneles abiertos
+  if(QSET.mode==="auto"&&profile&&!uiOpen()&&!document.hidden){autoT+=0.5;if(autoT>2){autoSamples.push(fpsNow);if(autoSamples.length>=6){const avg=autoSamples.reduce((a,b)=>a+b,0)/autoSamples.length;autoSamples=[];
+      const next=QSET.level==="alta"&&avg<30?"media":QSET.level==="media"&&avg<24?"baja":null;if(next){applyQuality(next);toast(`Calidad gráfica ajustada a ${QUAL[next].lbl.toLowerCase()} para mantener la fluidez`)}}}}}}
+function showQuality(){const info=renderer.info.render;
+  card.innerHTML=`<div class="card-h"><div><div class="eyebrow">Rendimiento</div><h2>Calidad gráfica</h2></div><button class="x" type="button" aria-label="Cerrar">×</button></div>
+  <div class="card-b"><div class="kpis"><div><span>Cuadros por segundo</span><b id="qFps">${fpsNow.toFixed(0)}</b></div><div><span>Llamadas de dibujo</span><b>${info.calls}</b></div><div><span>Triángulos</span><b>${Math.round(info.triangles/1000)} mil</b></div></div>
+  <p class="note">Por encima de 30 cuadros por segundo el recorrido se siente fluido. En modo automático NectarLab baja la calidad si este computador no alcanza.</p>
+  <div class="mlist">${["auto","alta","media","baja"].map(k=>{const on=k==="auto"?QSET.mode==="auto":QSET.mode!=="auto"&&QSET.level===k;return `<button class="mi${on?" done":""}" data-q="${k}" aria-current="${on}"><span class="n">${on?"✓":""}</span><span><b>${k==="auto"?"Automática":QUAL[k].lbl}</b><span>${k==="auto"?"Empieza en alta y baja sola si hace falta. Ahora: "+QUAL[QSET.level].lbl.toLowerCase()+".":QUAL[k].desc}</span></span><span></span></button>`}).join("")}</div></div>`;
+  modal.hidden=false;sheet.hidden=true;card.querySelector(".x").onclick=()=>modal.hidden=true;
+  card.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{const k=b.dataset.q;if(k==="auto"){QSET.mode="auto";autoSamples=[];autoT=0;applyQuality(QSET.level==="baja"?"media":QSET.level)}else{QSET.mode="manual";applyQuality(k)}showQuality()})}
 const clock=new THREE.Clock();let T=0;
 const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
 function frame(){
-  const dt=Math.min(clock.getDelta(),0.05);T+=dt;
+  const dtRaw=clock.getDelta();const dt=Math.min(dtRaw,0.05);T+=dt;tickFps(dtRaw);
   if(tween){tween.t+=dt/tween.dur;const e=tween.t>=1?1:1-Math.pow(1-tween.t,3);
     ["x","z","yaw","pitch"].forEach(k=>player[k]=tween.from[k]+(tween.to[k]-tween.from[k])*e);
     if(tween.t>=1){const k=tween.after,o=tween.open;tween=null;if(o&&k&&k!=="pack"&&!orbit)openStation(k)}}
@@ -1435,17 +1843,21 @@ function frame(){
     if(Math.abs(orbit.a-orbit.a0)>=lim-1e-3&&orbit.idle>2.5)orbit.a0dir=(orbit.a0dir||1)*-1;
     const ce=Math.cos(orbit.e);camera.position.set(orbit.c.x+orbit.r*ce*Math.sin(orbit.a),orbit.c.y+orbit.r*Math.sin(orbit.e)+0.3,orbit.c.z+orbit.r*ce*Math.cos(orbit.a));camera.lookAt(orbit.c)}
   const bob=(!tween&&(Math.abs(joy.y)+Math.abs(joy.x)>0.1||keys.KeyW||keys.KeyS||keys.ArrowUp||keys.ArrowDown||keys.KeyA||keys.KeyD))&&!reduce?Math.sin(T*9)*0.025:0;
-  if(!orbit){camera.position.set(player.x,EYE+bob,player.z);camera.rotation.set(player.pitch,player.yaw,0)}
+  if(TOUR)updateTour(dt);else if(!orbit){camera.position.set(player.x,EYE+bob,player.z);camera.rotation.set(player.pitch,player.yaw,0)}
   // objetos animados
   const prod=producing>0;if(prod)producing-=dt;
   agitator.rotation.y+=dt*(prod?14:2.5);carousel.rotation.y+=dt*(prod?3:0.25);
   ORDER.forEach(k=>{const mk=markers[k];if(mk.g.visible){mk.gem.position.y=(ST[k].qa?2.3:3.2)+Math.sin(T*2.4)*0.12;mk.gem.rotation.y+=dt*1.5;mk.ring.material.opacity=0.55+0.3*Math.sin(T*3)}});
-  parts.forEach((p,i)=>{p.visible=prod;if(prod){const u=((T*0.11)+i/parts.length)%1;flowCurve.getPointAt(u,p.position)}});
+  parts.forEach((p,i)=>{p.visible=prod&&!TOUR;if(prod&&!TOUR){const u=((T*0.11)+i/parts.length)%1;flowCurve.getPointAt(u,p.position)}});
   if(chartDisc)chartDisc.rotation.z-=dt*(prod?0.6:0.02);if(prod)chainMat.map.offset.x-=dt*1.6;
-  bottles.forEach(b=>{if(prod){b.position.x+=dt*0.9;if(b.position.x>19.2)b.position.x-=6}});
+  const pp=prod&&M().kind==="pulpa";
+  bubbles.forEach(b=>{b.userData.t+=dt*(pp?0.9:0.35);if(b.userData.t>1)b.userData.t-=1;b.position.y=0.42+b.userData.t*0.38});
+  pulperShaft.rotation.x+=dt*(pp?22:0);pulperShaft2.rotation.x+=dt*(pp?22:0);
+  rollerFruits.forEach(fr=>{if(pp){fr.position.x+=dt*0.55;if(fr.position.x>-33.85)fr.position.x-=3.3}});
+  bottles.forEach(b=>{if(prod&&!TOUR){b.position.x+=dt*0.9;if(b.position.x>19.2)b.position.x-=6}});
   steam.forEach(s=>{s.t+=dt*(prod?0.7:0.25);if(s.t>1)s.t-=1;s.m.position.set(-0.2+Math.sin(s.t*6)*0.08,0.15+s.t*0.9,-5.25);s.m.scale.setScalar(0.25+s.t*0.9);s.m.material.opacity=(1-s.t)*(prod?0.45:0.12)});
   // proximidad
-  const n=(tween||orbit)?null:nearest();if(n!==near){near=n;const b=$("#operate");if(near&&!uiOpen()){b.hidden=false;b.innerHTML=`Operar: ${ST[near].name}<kbd>E</kbd>`}else b.hidden=true}
+  const n=(tween||orbit||TOUR)?null:nearest();if(n!==near){near=n;const b=$("#operate");if(near&&!uiOpen()){b.hidden=false;b.innerHTML=`Operar: ${ST[near].name}<kbd>E</kbd>`}else b.hidden=true}
   if(near&&(uiOpen()||orbit))$("#operate").hidden=true;else if(near)$("#operate").hidden=false;
   renderer.render(scene,camera);requestAnimationFrame(frame);
 }
